@@ -1,10 +1,28 @@
 {% extends "base.html" %}
-{% block title %}管理 - FMS{% endblock %}
 {% block content %}
 <h2 class="mb-4">管理</h2>
 
 <div class="row g-4">
-    <div class="col-lg-7">
+    <div class="col-lg-6">
+        <div class="card shadow-sm" id="csv">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0"><i class="fas fa-file-csv me-2"></i>CSV インポート</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small">
+                    列の順序: <code>date, type, description, category, payment_method, amount, memo</code><br>
+                    （type は expense / income。先頭のヘッダ行は自動でスキップします）
+                </p>
+                <div class="input-group input-group-sm mb-2">
+                    <input type="file" id="csvFile" class="form-control" accept=".csv,text/csv" aria-label="CSVファイル">
+                    <button class="btn btn-outline-primary" id="csvImportBtn"><i class="fas fa-upload me-1"></i>取込</button>
+                </div>
+                <div id="csvImportResult" class="small"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
         <div class="card shadow-sm" id="recurring">
             <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
                 <h5 class="mb-0"><i class="fas fa-sync-alt me-2"></i>定期取引（毎月の固定費）</h5>
@@ -27,9 +45,11 @@
             </div>
         </div>
     </div>
+</div>
 
-    <div class="col-lg-5">
-        <div class="card shadow-sm mb-4" id="budget">
+<div class="row g-4 mt-4">
+    <div class="col-lg-6">
+        <div class="card shadow-sm" id="budget">
             <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
                 <h5 class="mb-0"><i class="fas fa-bullseye me-2"></i>予算設定</h5>
                 <input type="month" id="budgetMonth" class="form-control form-control-sm" style="max-width: 150px;">
@@ -46,25 +66,10 @@
                 </div>
             </div>
         </div>
+    </div>
 
-        <div class="card shadow-sm" id="csv">
-            <div class="card-header bg-white py-3">
-                <h5 class="mb-0"><i class="fas fa-file-csv me-2"></i>CSV インポート</h5>
-            </div>
-            <div class="card-body">
-                <p class="text-muted small">
-                    列の順序: <code>date, type, description, category, payment_method, amount, memo</code><br>
-                    （type は expense / income。先頭のヘッダ行は自動でスキップします）
-                </p>
-                <div class="input-group input-group-sm mb-2">
-                    <input type="file" id="csvFile" class="form-control" accept=".csv,text/csv" aria-label="CSVファイル">
-                    <button class="btn btn-outline-primary" id="csvImportBtn"><i class="fas fa-upload me-1"></i>取込</button>
-                </div>
-                <div id="csvImportResult" class="small"></div>
-            </div>
-        </div>
-
-        <div class="card shadow-sm mt-4" id="masters">
+    <div class="col-lg-6">
+        <div class="card shadow-sm" id="masters">
             <div class="card-header bg-white py-3">
                 <h5 class="mb-0"><i class="fas fa-tags me-2"></i>カテゴリー・決済手段の編集</h5>
             </div>
@@ -94,27 +99,6 @@
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-
-        <div class="card shadow-sm mt-4" id="account">
-            <div class="card-header bg-white py-3">
-                <h5 class="mb-0"><i class="fas fa-key me-2"></i>パスワード変更</h5>
-            </div>
-            <div class="card-body">
-                <form id="passwordForm" novalidate>
-                    <div class="mb-2">
-                        <label class="form-label small" for="curPassword">現在のパスワード</label>
-                        <input type="password" id="curPassword" class="form-control form-control-sm" autocomplete="current-password" required>
-                    </div>
-                    <div class="mb-2">
-                        <label class="form-label small" for="newPassword">新しいパスワード</label>
-                        <input type="password" id="newPassword" class="form-control form-control-sm" minlength="8" autocomplete="new-password" required>
-                        <div class="form-text">8文字以上</div>
-                    </div>
-                    <button type="button" class="btn btn-sm btn-primary" id="changePasswordBtn">変更する</button>
-                    <div id="passwordResult" class="small mt-2"></div>
-                </form>
             </div>
         </div>
     </div>

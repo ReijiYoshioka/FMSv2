@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% block title %}月次収支 - FMS{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
     <h2 class="mb-0">月次収支管理</h2>
@@ -73,10 +72,10 @@
                             </select>
                         </div>
                         <div class="col-6 col-md-2">
-                            <input type="number" id="searchMin" class="form-control form-control-sm" placeholder="下限¥" min="0" inputmode="numeric" aria-label="金額下限">
+                            <input type="number" id="searchMin" class="form-control form-control-sm" placeholder="下限（円）" min="0" inputmode="numeric" aria-label="金額下限">
                         </div>
                         <div class="col-6 col-md-2">
-                            <input type="number" id="searchMax" class="form-control form-control-sm" placeholder="上限¥" min="0" inputmode="numeric" aria-label="金額上限">
+                            <input type="number" id="searchMax" class="form-control form-control-sm" placeholder="上限（円）" min="0" inputmode="numeric" aria-label="金額上限">
                         </div>
                         <div class="col-12 d-flex gap-2">
                             <button class="btn btn-sm btn-primary" type="button" id="searchApplyBtn"><i class="fas fa-filter me-1"></i>絞り込み</button>

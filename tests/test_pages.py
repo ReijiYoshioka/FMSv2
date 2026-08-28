@@ -1,6 +1,6 @@
 import pytest
 
-PAGES = ["/monthly", "/graphs", "/manage"]
+PAGES = ["/monthly", "/graphs", "/manage", "/settings"]
 
 
 @pytest.mark.parametrize("path", PAGES)

@@ -1,3 +1,5 @@
+import sqlite3
+
 from ..utils.dates import month_range, shift_month
 from . import summary_repo
 from .errors import ValidationError
@@ -60,15 +62,18 @@ def _upsert(db, user_id, category_id, month, amount):
             (user_id, category_id, month),
         )
         return
-    db.execute(
-        "INSERT INTO budgets (user_id, category_id, month, amount) VALUES (?, ?, ?, ?) "
-        "ON CONFLICT(user_id, category_id, month) DO UPDATE SET amount = excluded.amount",
-        (user_id, category_id, month, amount),
-    )
+    try:
+        db.execute(
+            "INSERT INTO budgets (user_id, category_id, month, amount) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(user_id, category_id, month) DO UPDATE SET amount = excluded.amount",
+            (user_id, category_id, month, amount),
+        )
+    except sqlite3.IntegrityError:
+        raise ValidationError("指定されたカテゴリーが見つかりません。", 404) from None
 
 
 def save_items(db, user_id, month, items):
-    """不正な要素（category_id/amountが数値でない、amountが負数）は旧版同様に静かにスキップする。"""
+    """不正な要素（category_id/amountが数値でない、amountが負数、削除済みカテゴリー）は旧版同様に静かにスキップする。"""
     saved = 0
     for item in items:
         if not isinstance(item, dict):
@@ -79,7 +84,10 @@ def save_items(db, user_id, month, items):
         amount = _to_valid_amount(item.get("amount", 0))
         if amount is None:
             continue
-        _upsert(db, user_id, category_id, month, amount)
+        try:
+            _upsert(db, user_id, category_id, month, amount)
+        except ValidationError:
+            continue
         saved += 1
     db.commit()
     return saved

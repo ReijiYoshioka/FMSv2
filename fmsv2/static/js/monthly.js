@@ -238,7 +238,7 @@ function renderTransactions(transactions) {
     listEl.innerHTML = `
             <div class="text-center p-5 text-muted">
                 <i class="fas fa-inbox fa-3x mb-3 text-secondary opacity-25"></i>
-                <p>この月の取引はまだありません</p>
+                <p>データがありません</p>
                 <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#transactionModal" onclick="resetForm()">最初の取引を追加</button>
             </div>`;
     return;

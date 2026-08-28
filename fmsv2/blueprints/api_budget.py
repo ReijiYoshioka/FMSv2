@@ -39,19 +39,19 @@ def save():
     if not month or not is_valid_month_str(month):
         return json_error("monthの形式が不正です。")
 
-    if "items" in payload:
-        saved = budget_repo.save_items(db, user_id, month, payload["items"])
-        return json_ok({"saved": saved})
-
-    category_id = payload.get("category_id")
-    amount = payload.get("amount")
-    if category_id is None or amount is None:
-        return json_error("category_idとamountは必須です。")
     try:
+        if "items" in payload:
+            saved = budget_repo.save_items(db, user_id, month, payload["items"])
+            return json_ok({"saved": saved})
+
+        category_id = payload.get("category_id")
+        amount = payload.get("amount")
+        if category_id is None or amount is None:
+            return json_error("category_idとamountは必須です。")
         budget_repo.save_single(db, user_id, month, category_id, amount)
+        return json_ok({"saved": 1})
     except ValidationError as e:
         return json_error(e.message, e.status)
-    return json_ok({"saved": 1})
 
 
 @bp.route("", methods=["DELETE"])

@@ -26,3 +26,9 @@ def graphs():
 @login_required
 def manage():
     return render_template("pages/manage.html", active_page="manage")
+
+
+@bp.route("/settings")
+@login_required
+def settings():
+    return render_template("pages/settings.html", active_page="settings")

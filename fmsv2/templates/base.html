@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="csrf-token" content="{{ csrf_token }}">
-  <title>{% block title %}FMS - Financial Management System{% endblock %}</title>
+  <title>FMS</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
   <link href="{{ url_for('static', filename='vendor/bootstrap/bootstrap.min.css') }}" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"
         integrity="sha384-iw3OoTErCYJJB9mCa8LNS2hbsQ7M3C0EpIsO/H5+EGAkPGc6rk+V8i04oW/K5xq0" crossorigin="anonymous" referrerpolicy="no-referrer">
@@ -36,6 +37,11 @@
           <li class="nav-item">
             <a class="nav-link {% if active_page == 'manage' %}active{% endif %}" href="{{ url_for('pages.manage') }}">
               <i class="fas fa-sliders-h me-1"></i> 管理
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if active_page == 'settings' %}active{% endif %}" href="{{ url_for('pages.settings') }}">
+              <i class="fas fa-gear me-1"></i> 設定
             </a>
           </li>
         </ul>
