@@ -1,50 +1,65 @@
 <!doctype html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="csrf-token" content="{{ csrf_token }}">
-  <title>{% block title %}FMSv2{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap/bootstrap.min.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <title>{% block title %}FMS - Financial Management System{% endblock %}</title>
+  <link href="{{ url_for('static', filename='vendor/bootstrap/bootstrap.min.css') }}" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"
+        integrity="sha384-iw3OoTErCYJJB9mCa8LNS2hbsQ7M3C0EpIsO/H5+EGAkPGc6rk+V8i04oW/K5xq0" crossorigin="anonymous" referrerpolicy="no-referrer">
+  <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
 </head>
-<body>
-  <nav class="navbar navbar-expand navbar-dark bg-primary mb-4">
+<body class="bg-light">
+
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
     <div class="container-fluid">
-      <span class="navbar-brand">FMSv2</span>
-      <ul class="navbar-nav me-auto">
-        <li class="nav-item">
-          <a class="nav-link {% if active_page == 'monthly' %}active{% endif %}"
-             href="{{ url_for('pages.monthly') }}">月次収支</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link {% if active_page == 'graphs' %}active{% endif %}"
-             href="{{ url_for('pages.graphs') }}">レポート</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link {% if active_page == 'manage' %}active{% endif %}"
-             href="{{ url_for('pages.manage') }}">管理</a>
-        </li>
-      </ul>
-      <span class="navbar-text text-white me-3">{{ current_username }}</span>
-      <form method="post" action="{{ url_for('auth.logout') }}" class="d-inline">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button type="submit" class="btn btn-outline-light btn-sm">ログアウト</button>
-      </form>
+      <a class="navbar-brand" href="{{ url_for('pages.monthly') }}">
+        <i class="fas fa-wallet me-2"></i>FMS
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+              aria-controls="navbarNav" aria-expanded="false" aria-label="メニューを開閉">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav me-auto">
+          <li class="nav-item">
+            <a class="nav-link {% if active_page == 'monthly' %}active{% endif %}" href="{{ url_for('pages.monthly') }}">
+              <i class="fas fa-list-ul me-1"></i> 月次収支
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if active_page == 'graphs' %}active{% endif %}" href="{{ url_for('pages.graphs') }}">
+              <i class="fas fa-chart-pie me-1"></i> レポート
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if active_page == 'manage' %}active{% endif %}" href="{{ url_for('pages.manage') }}">
+              <i class="fas fa-sliders-h me-1"></i> 管理
+            </a>
+          </li>
+        </ul>
+        <span class="navbar-text text-white me-3">
+          <i class="fas fa-user-circle me-1"></i> {{ current_username }}
+        </span>
+        <form method="POST" action="{{ url_for('auth.logout') }}" class="m-0">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" class="btn btn-outline-light btn-sm">ログアウト</button>
+        </form>
+      </div>
     </div>
   </nav>
 
-  <div class="container-fluid">
+  <div class="container mt-4 mb-5">
     {% block content %}{% endblock %}
   </div>
 
-  <div class="toast-container position-fixed bottom-0 end-0 p-3">
-    <div id="appToast" class="toast" role="alert">
-      <div class="toast-header">
-        <strong class="me-auto">FMSv2</strong>
-        <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+  <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1090;">
+    <div id="appToast" class="toast align-items-center border-0" role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="d-flex">
+        <div class="toast-body" id="appToastBody"></div>
+        <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="閉じる"></button>
       </div>
-      <div class="toast-body"></div>
     </div>
   </div>
 

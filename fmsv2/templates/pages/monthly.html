@@ -1,126 +1,221 @@
 {% extends "base.html" %}
-{% block title %}月次収支 - FMSv2{% endblock %}
+{% block title %}月次収支 - FMS{% endblock %}
 {% block content %}
-<div class="d-flex align-items-center mb-3 gap-2">
-  <button id="prevMonthBtn" class="btn btn-outline-secondary">&laquo;</button>
-  <input type="month" id="monthInput" class="form-control" style="max-width: 200px;">
-  <button id="nextMonthBtn" class="btn btn-outline-secondary">&raquo;</button>
-  <button id="newTransactionBtn" class="btn btn-primary ms-auto" data-bs-toggle="modal"
-          data-bs-target="#transactionModal">取引を登録</button>
-</div>
-
-<div class="row mb-3">
-  <div class="col-md-4">
-    <div class="card"><div class="card-body">
-      <div class="text-muted">収入</div>
-      <div class="fs-4" id="incomeTotal">¥0</div>
-      <div class="small text-muted" id="incomeDelta"></div>
-    </div></div>
-  </div>
-  <div class="col-md-4">
-    <div class="card"><div class="card-body">
-      <div class="text-muted">支出</div>
-      <div class="fs-4" id="expenseTotal">¥0</div>
-      <div class="small text-muted" id="expenseDelta"></div>
-    </div></div>
-  </div>
-  <div class="col-md-4">
-    <div class="card"><div class="card-body">
-      <div class="text-muted">収支差額</div>
-      <div class="fs-4" id="balanceTotal">¥0</div>
-      <div class="small text-muted" id="balanceDelta"></div>
-    </div></div>
-  </div>
-</div>
-
-<div class="row">
-  <div class="col-md-8">
-    <div class="card mb-3"><div class="card-body">
-      <form id="filterForm" class="row g-2 mb-3">
-        <div class="col-md-4"><input type="text" class="form-control" name="q" placeholder="キーワード"></div>
-        <div class="col-md-2">
-          <select class="form-select" name="type">
-            <option value="">種別</option>
-            <option value="income">収入</option>
-            <option value="expense">支出</option>
-          </select>
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h2 class="mb-0">月次収支管理</h2>
+    <div class="d-flex gap-2 align-items-center">
+        <div class="input-group month-nav" style="width: auto;">
+            <button class="btn btn-outline-secondary" type="button" id="prevMonthBtn" aria-label="前の月へ"><i class="fas fa-chevron-left"></i></button>
+            <input type="month" id="monthSelector" class="form-control" aria-label="対象月" style="max-width: 160px;">
+            <button class="btn btn-outline-secondary" type="button" id="nextMonthBtn" aria-label="次の月へ"><i class="fas fa-chevron-right"></i></button>
         </div>
-        <div class="col-md-3"><select class="form-select" name="category_id"><option value="">カテゴリー</option></select></div>
-        <div class="col-md-1"><input type="number" class="form-control" name="min" placeholder="最小額"></div>
-        <div class="col-md-1"><input type="number" class="form-control" name="max" placeholder="最大額"></div>
-        <div class="col-md-1"><button type="submit" class="btn btn-secondary w-100">検索</button></div>
-      </form>
-      <a id="csvExportLink" class="btn btn-outline-secondary btn-sm mb-2" href="#">CSVエクスポート</a>
-      <table class="table table-hover">
-        <thead><tr><th>日付</th><th>内容</th><th>カテゴリー</th><th>決済手段</th><th class="text-end">金額</th></tr></thead>
-        <tbody id="transactionList"></tbody>
-      </table>
-    </div></div>
-  </div>
-  <div class="col-md-4">
-    <div class="card mb-3"><div class="card-body">
-      <h6>カテゴリー別支出</h6>
-      <canvas id="categoryChart"></canvas>
-    </div></div>
-    <div class="card mb-3"><div class="card-body">
-      <h6>決済手段別支出</h6>
-      <canvas id="paymentChart"></canvas>
-    </div></div>
-    <div class="card"><div class="card-body">
-      <h6>予算進捗</h6>
-      <div id="budgetProgress"></div>
-    </div></div>
-  </div>
-</div>
-
-<div class="modal fade" id="transactionModal" tabindex="-1">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <form id="transactionForm">
-        <div class="modal-header">
-          <h5 class="modal-title">取引</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          <input type="hidden" name="id">
-          <div class="row g-2 mb-2">
-            <div class="col-md-6"><label>日付<input type="date" class="form-control" name="date" required></label></div>
-            <div class="col-md-6">
-              <label>種別
-                <select class="form-select" name="type">
-                  <option value="expense">支出</option>
-                  <option value="income">収入</option>
-                </select>
-              </label>
-            </div>
-          </div>
-          <div class="mb-2"><label>内容<input type="text" class="form-control" name="description" required></label></div>
-          <div class="row g-2 mb-2">
-            <div class="col-md-6"><label>決済手段<select class="form-select" name="payment_method_id"></select></label></div>
-            <div class="col-md-6"><label>カテゴリー<select class="form-select" name="category_id"></select></label></div>
-          </div>
-          <div class="mb-2">
-            <label>金額<input type="number" class="form-control" name="amount" min="0" required></label>
-          </div>
-          <div class="mb-2">
-            <div class="d-flex justify-content-between">
-              <label class="form-label mb-0">内訳</label>
-              <button type="button" id="addItemBtn" class="btn btn-sm btn-outline-secondary">+ 内訳を追加</button>
-            </div>
-            <div id="itemRows"></div>
-          </div>
-          <div class="mb-2"><label>備考<textarea class="form-control" name="memo"></textarea></label></div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" id="deleteTransactionBtn" class="btn btn-danger me-auto d-none">削除</button>
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
-          <button type="submit" class="btn btn-primary">保存</button>
-        </div>
-      </form>
+        <button class="btn btn-primary text-nowrap" data-bs-toggle="modal" data-bs-target="#transactionModal" onclick="resetForm()">
+            <i class="fas fa-plus"></i> 登録
+        </button>
     </div>
-  </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card bg-success text-white h-100 shadow-sm">
+            <div class="card-body">
+                <h6 class="card-title opacity-75">収入</h6>
+                <h3 class="card-text fw-bold" id="summaryIncome">¥0</h3>
+                <div class="small opacity-75" id="summaryIncomeDelta"></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-danger text-white h-100 shadow-sm">
+            <div class="card-body">
+                <h6 class="card-title opacity-75">支出</h6>
+                <h3 class="card-text fw-bold" id="summaryExpense">¥0</h3>
+                <div class="small opacity-75" id="summaryExpenseDelta"></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white h-100 shadow-sm" id="summaryBalanceCard">
+            <div class="card-body">
+                <h6 class="card-title opacity-75">収支差額</h6>
+                <h3 class="card-text fw-bold" id="summaryBalance">¥0</h3>
+                <div class="small opacity-75" id="summaryBalanceDelta"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white py-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-list-ul me-2"></i>取引一覧</h5>
+                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#searchPanel" aria-expanded="false" aria-controls="searchPanel">
+                        <i class="fas fa-search me-1"></i>検索
+                    </button>
+                </div>
+                <div class="collapse mt-3" id="searchPanel">
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <input type="search" id="searchKeyword" class="form-control form-control-sm" placeholder="キーワード（内容・備考）" aria-label="キーワード検索">
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <select id="searchType" class="form-select form-select-sm" aria-label="種別で絞り込み">
+                                <option value="">種別（全て）</option>
+                                <option value="expense">支出</option>
+                                <option value="income">収入</option>
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <select id="searchCategory" class="form-select form-select-sm" aria-label="カテゴリーで絞り込み">
+                                <option value="">カテゴリー（全て）</option>
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <input type="number" id="searchMin" class="form-control form-control-sm" placeholder="下限¥" min="0" inputmode="numeric" aria-label="金額下限">
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <input type="number" id="searchMax" class="form-control form-control-sm" placeholder="上限¥" min="0" inputmode="numeric" aria-label="金額上限">
+                        </div>
+                        <div class="col-12 d-flex gap-2">
+                            <button class="btn btn-sm btn-primary" type="button" id="searchApplyBtn"><i class="fas fa-filter me-1"></i>絞り込み</button>
+                            <button class="btn btn-sm btn-outline-secondary" type="button" id="searchClearBtn">クリア</button>
+                            <a class="btn btn-sm btn-outline-success ms-auto" id="csvExportBtn" href="#"><i class="fas fa-file-csv me-1"></i>CSV出力</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="list-group list-group-flush" id="transactionList">
+                <div class="text-center p-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">読み込み中...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="d-flex flex-column gap-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="fas fa-chart-pie me-2"></i>カテゴリー別 (支出)</h6>
+                </div>
+                <div class="card-body position-relative chart-box" style="min-height: 260px;">
+                    <canvas id="monthlyCategoryChart" role="img" aria-label="カテゴリー別支出の円グラフ" style="max-height: 250px;"></canvas>
+                    <div class="chart-empty text-center text-muted small position-absolute top-50 start-50 translate-middle d-none">
+                        <i class="fas fa-inbox fa-2x mb-2 opacity-25 d-block"></i>データがありません
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="fas fa-credit-card me-2"></i>決済手段別 (支出)</h6>
+                </div>
+                <div class="card-body position-relative chart-box" style="min-height: 260px;">
+                    <canvas id="monthlyPaymentChart" role="img" aria-label="決済手段別支出の円グラフ" style="max-height: 250px;"></canvas>
+                    <div class="chart-empty text-center text-muted small position-absolute top-50 start-50 translate-middle d-none">
+                        <i class="fas fa-inbox fa-2x mb-2 opacity-25 d-block"></i>データがありません
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="fas fa-bullseye me-2"></i>予算の進捗</h6>
+                    <a href="{{ url_for('pages.manage') }}#budget" class="small text-decoration-none">設定</a>
+                </div>
+                <div class="card-body" id="budgetProgress">
+                    <div class="text-center text-muted small py-3">読み込み中...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="transactionModal" tabindex="-1" aria-hidden="true" aria-labelledby="modalTitle">
+    <div class="modal-dialog modal-lg modal-fullscreen-sm-down">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle">取引登録</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+            </div>
+            <div class="modal-body">
+                <form id="transactionForm" novalidate>
+                    <input type="hidden" name="id" id="t_id">
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label" for="t_date">日付</label>
+                            <input type="datetime-local" name="date" id="t_date" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="t_type">種別</label>
+                            <select name="type" id="t_type" class="form-select" onchange="toggleTypeUI()">
+                                <option value="expense">支出</option>
+                                <option value="income">収入</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="t_description">内容（店名・支払先・収入源）</label>
+                        <input type="text" name="description" id="t_description" class="form-control" required>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6" id="paymentMethodContainer">
+                            <label class="form-label" for="t_payment_method">決済手段</label>
+                            <select name="payment_method_id" id="t_payment_method" class="form-select"></select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="t_amount">金額合計</label>
+                            <div class="input-group">
+                                <span class="input-group-text">¥</span>
+                                <input type="number" name="amount" id="t_amount" class="form-control text-end" min="0" step="1" inputmode="numeric" required>
+                            </div>
+                            <small class="text-muted" id="amountHelp">内訳がある場合は自動計算されます</small>
+                        </div>
+                    </div>
+
+                    <div id="itemsSection" class="mb-3 border rounded p-3 bg-light">
+                        <div class="d-flex justify-content-between mb-2">
+                            <h6 class="mb-0">内訳・品目詳細 (オプション)</h6>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addItemRow()">
+                                <i class="fas fa-plus"></i> 品目追加
+                            </button>
+                        </div>
+                        <div id="itemsContainer"></div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="t_category">カテゴリー (全体)</label>
+                        <select name="category_id" id="t_category" class="form-select">
+                            <option value="">自動 (未選択)</option>
+                        </select>
+                        <small class="text-muted">支出で内訳がある場合、自動的に最頻カテゴリーが設定されます。</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="t_memo">備考</label>
+                        <textarea name="memo" id="t_memo" class="form-control" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <div class="ms-auto" id="deleteBtnContainer" style="display:none;">
+                     <button type="button" class="btn btn-danger me-2" id="deleteBtn" onclick="deleteTransaction()">削除</button>
+                </div>
+                <button type="button" class="btn btn-primary" id="saveBtn" onclick="saveTransaction()">保存</button>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 {% block scripts %}
+<script>window.MANAGE_URL = "{{ url_for('pages.manage') }}";</script>
 <script src="{{ url_for('static', filename='js/monthly.js') }}"></script>
 {% endblock %}

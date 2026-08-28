@@ -2,7 +2,7 @@
 .env
 instance/*.db
 logs/*.txt
-logs/.prune_state
+logs/*.prune_state
 
 # Python
 __pycache__/

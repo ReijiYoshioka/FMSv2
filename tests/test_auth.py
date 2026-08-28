@@ -8,7 +8,7 @@ def test_register_success(client):
         data={"username": "hanako", "password": "password123", "csrf_token": token},
     )
     assert resp.status_code == 200
-    assert "登録が完了しました" in resp.get_data(as_text=True)
+    assert "登録完了" in resp.get_data(as_text=True)
 
 
 def test_register_username_too_short(client):

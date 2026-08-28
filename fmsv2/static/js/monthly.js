@@ -1,266 +1,625 @@
+let transactionModal;
+let charts = {};
+let txById = {};
+let searchFilter = {};
+
+const WEEKDAYS_JA = ["日", "月", "火", "水", "木", "金", "土"];
 const PIE_COLORS = [
-  "#4e73df", "#1cc88a", "#36b9cc", "#f6c23e", "#e74a3b",
-  "#858796", "#5a5c69", "#2e59d9", "#17a673", "#2c9faf",
+  "#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF", "#FF9F40",
+  "#e74c3c", "#3498db", "#f1c40f", "#1abc9c", "#9b59b6", "#e67e22",
 ];
 
-let txById = {};
-const charts = {};
+document.addEventListener("DOMContentLoaded", async () => {
+  const modalEl = document.getElementById("transactionModal");
+  if (modalEl) transactionModal = new bootstrap.Modal(modalEl);
 
-function currentMonth() {
-  return document.getElementById("monthInput").value;
-}
+  await loadMetadata();
+  populateSelects();
 
-function shiftMonth(month, delta) {
-  const [y, m] = month.split("-").map(Number);
-  const total = y * 12 + (m - 1) + delta;
-  const newY = Math.floor(total / 12);
-  const newM = (total % 12) + 1;
-  return `${newY}-${String(newM).padStart(2, "0")}`;
-}
+  const now = new Date();
+  document.getElementById("monthSelector").value =
+    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
-function renderChart(canvasId, labels, values, valueKey) {
-  const canvas = document.getElementById(canvasId);
-  if (charts[canvasId]) {
-    charts[canvasId].destroy();
-  }
-  if (!labels.length) {
-    return;
-  }
-  charts[canvasId] = new Chart(canvas, {
-    type: "doughnut",
-    data: {
-      labels,
-      datasets: [{ data: values, backgroundColor: PIE_COLORS }],
-    },
-    options: {
-      plugins: {
-        tooltip: {
-          callbacks: {
-            label: (ctx) => `${ctx.label}: ${formatCurrency(ctx.parsed)}`,
-          },
-        },
-      },
-    },
-  });
-}
+  initMonthlyPage();
+});
 
-async function loadFilterOptions() {
-  const meta = await loadMetadata();
-  const categorySelects = document.querySelectorAll('select[name="category_id"]');
-  const paymentSelects = document.querySelectorAll('select[name="payment_method_id"]');
-  categorySelects.forEach((select) => {
-    const keepFirst = select.closest("#filterForm") !== null;
-    select.innerHTML = keepFirst ? '<option value="">カテゴリー</option>' : '<option value="">未分類</option>';
-    meta.categories.forEach((c) => {
+function populateSelects() {
+  const catSelect = document.getElementById("t_category");
+  const paySelect = document.getElementById("t_payment_method");
+
+  if (catSelect) {
+    const first = catSelect.options[0];
+    catSelect.innerHTML = "";
+    if (first) catSelect.appendChild(first);
+    metadata.categories.forEach((c) => {
       const opt = document.createElement("option");
       opt.value = c.id;
       opt.textContent = c.name;
-      select.appendChild(opt);
+      catSelect.appendChild(opt);
     });
-  });
-  paymentSelects.forEach((select) => {
-    select.innerHTML = '<option value="">未設定</option>';
-    meta.payment_methods.forEach((p) => {
+  }
+
+  if (paySelect) {
+    paySelect.innerHTML = "";
+    const none = document.createElement("option");
+    none.value = "";
+    none.textContent = "(なし)";
+    paySelect.appendChild(none);
+    metadata.payment_methods.forEach((p) => {
       const opt = document.createElement("option");
       opt.value = p.id;
       opt.textContent = p.name;
-      select.appendChild(opt);
+      paySelect.appendChild(opt);
     });
-  });
+  }
 }
 
-function addItemRow(item = {}) {
-  const container = document.getElementById("itemRows");
-  const row = document.createElement("div");
-  row.className = "row g-2 mb-1 item-row";
-  row.innerHTML = `
-    <div class="col-5"><input type="text" class="form-control item-name" placeholder="品名" value="${escapeHtml(item.item_name || "")}"></div>
-    <div class="col-4"><input type="number" class="form-control item-amount" placeholder="金額" value="${item.amount ?? ""}"></div>
-    <div class="col-2"><select class="form-select item-category"></select></div>
-    <div class="col-1"><button type="button" class="btn btn-outline-danger remove-item-btn">×</button></div>
-  `;
-  container.appendChild(row);
-  row.querySelector(".remove-item-btn").addEventListener("click", () => {
-    row.remove();
-    recomputeAmountFromItems();
+function initMonthlyPage() {
+  const monthSelector = document.getElementById("monthSelector");
+  if (!monthSelector) return;
+
+  refreshMonthlyView();
+  monthSelector.addEventListener("change", refreshMonthlyView);
+
+  document.getElementById("prevMonthBtn")?.addEventListener("click", () => {
+    monthSelector.value = shiftMonth(monthSelector.value, -1);
+    refreshMonthlyView();
   });
-  row.querySelector(".item-amount").addEventListener("input", recomputeAmountFromItems);
-  loadMetadata().then((meta) => {
-    const select = row.querySelector(".item-category");
-    select.innerHTML = '<option value="">未分類</option>';
-    meta.categories.forEach((c) => {
+  document.getElementById("nextMonthBtn")?.addEventListener("click", () => {
+    monthSelector.value = shiftMonth(monthSelector.value, 1);
+    refreshMonthlyView();
+  });
+
+  const catSel = document.getElementById("searchCategory");
+  if (catSel) {
+    metadata.categories.forEach((c) => {
       const opt = document.createElement("option");
       opt.value = c.id;
       opt.textContent = c.name;
-      if (item.category_id === c.id) opt.selected = true;
-      select.appendChild(opt);
+      catSel.appendChild(opt);
+    });
+  }
+  document.getElementById("searchApplyBtn")?.addEventListener("click", applySearch);
+  document.getElementById("searchKeyword")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") applySearch();
+  });
+  document.getElementById("searchClearBtn")?.addEventListener("click", () => {
+    ["searchKeyword", "searchType", "searchCategory", "searchMin", "searchMax"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.value = "";
+    });
+    searchFilter = {};
+    loadTransactions(monthSelector.value);
+  });
+  document.getElementById("csvExportBtn")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    const params = new URLSearchParams({ month: monthSelector.value });
+    Object.entries(searchFilter).forEach(([k, v]) => params.set(k, v));
+    window.location.href = `/api/csv?${params.toString()}`;
+  });
+}
+
+function applySearch() {
+  const f = {};
+  const kw = document.getElementById("searchKeyword")?.value.trim();
+  const type = document.getElementById("searchType")?.value;
+  const cat = document.getElementById("searchCategory")?.value;
+  const min = document.getElementById("searchMin")?.value;
+  const max = document.getElementById("searchMax")?.value;
+  if (kw) f.q = kw;
+  if (type) f.type = type;
+  if (cat) f.category_id = cat;
+  if (min !== "") f.min = min;
+  if (max !== "") f.max = max;
+  searchFilter = f;
+  loadTransactions(document.getElementById("monthSelector").value);
+}
+
+function refreshMonthlyView() {
+  const m = document.getElementById("monthSelector").value;
+  loadTransactions(m);
+  loadSummaryStats(m);
+  loadPieChart("monthlyCategoryChart", "category_chart", m);
+  loadPieChart("monthlyPaymentChart", "payment_chart", m);
+  loadBudgetProgress(m);
+}
+
+async function loadTransactions(month) {
+  const listEl = document.getElementById("transactionList");
+  listEl.innerHTML =
+    '<div class="text-center p-4"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">読み込み中...</span></div></div>';
+
+  try {
+    const params = new URLSearchParams({ month });
+    Object.entries(searchFilter).forEach(([k, v]) => params.set(k, v));
+    const res = await fetch(`/api/transactions?${params.toString()}`);
+    if (handleAuthError(res)) return;
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    renderTransactions(data.transactions || []);
+  } catch (e) {
+    console.error(e);
+    listEl.innerHTML = '<div class="alert alert-danger m-3">読み込みに失敗しました</div>';
+  }
+}
+
+async function loadBudgetProgress(month) {
+  const el = document.getElementById("budgetProgress");
+  if (!el) return;
+  try {
+    const res = await fetch(`/api/budget?month=${encodeURIComponent(month)}`);
+    if (handleAuthError(res)) return;
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    if (!data.items || data.items.length === 0) {
+      el.innerHTML =
+        `<div class="text-center text-muted small py-3">予算が未設定です。` +
+        `<a href="${window.MANAGE_URL}#budget">設定する</a></div>`;
+      return;
+    }
+    el.innerHTML = data.items
+      .map((it) => {
+        const over = it.spent > it.budget;
+        const barClass = over ? "bg-danger" : it.ratio >= 80 ? "bg-warning" : "bg-success";
+        const width = Math.min(it.ratio, 100);
+        return `
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between small mb-1">
+                        <span class="fw-bold">${escapeHtml(it.category)}</span>
+                        <span class="${over ? "text-danger fw-bold" : "text-muted"}">${formatCurrency(it.spent)} / ${formatCurrency(it.budget)}</span>
+                    </div>
+                    <div class="progress" role="progressbar" aria-label="${escapeHtml(it.category)}の予算進捗" aria-valuenow="${it.ratio}" aria-valuemin="0" aria-valuemax="100" style="height: 8px;">
+                        <div class="progress-bar ${barClass}" style="width: ${width}%"></div>
+                    </div>
+                    ${over ? `<div class="small text-danger mt-1"><i class="fas fa-exclamation-triangle me-1"></i>予算を ${formatCurrency(it.spent - it.budget)} 超過</div>` : ""}
+                </div>`;
+      })
+      .join("");
+  } catch (e) {
+    console.error(e);
+    el.innerHTML = '<div class="text-center text-muted small py-3">予算の読み込みに失敗しました</div>';
+  }
+}
+
+async function loadSummaryStats(month) {
+  try {
+    const [res, prevRes] = await Promise.all([
+      fetch(`/api/summary?mode=monthly_stats&month=${month}`),
+      fetch(`/api/summary?mode=monthly_stats&month=${shiftMonth(month, -1)}`),
+    ]);
+    if (handleAuthError(res)) return;
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    const prev = prevRes.ok ? await prevRes.json() : null;
+
+    document.getElementById("summaryIncome").textContent = formatCurrency(data.income);
+    document.getElementById("summaryExpense").textContent = formatCurrency(data.expense);
+    document.getElementById("summaryBalance").textContent = formatCurrency(data.balance);
+
+    if (prev && !prev.error) {
+      setDelta("summaryIncomeDelta", data.income - prev.income);
+      setDelta("summaryExpenseDelta", data.expense - prev.expense);
+      setDelta("summaryBalanceDelta", data.balance - prev.balance);
+    } else {
+      ["summaryIncomeDelta", "summaryExpenseDelta", "summaryBalanceDelta"].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = "";
+      });
+    }
+
+    const card = document.getElementById("summaryBalanceCard");
+    if (card) {
+      card.classList.remove("balance-positive", "balance-negative");
+      card.classList.add(Number(data.balance) < 0 ? "balance-negative" : "balance-positive");
+    }
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function setDelta(elId, diff) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  if (diff === 0) {
+    el.textContent = "前月比 ±0";
+    return;
+  }
+  const arrow = diff > 0 ? "▲" : "▼";
+  el.textContent = `前月比 ${arrow}${formatCurrency(Math.abs(diff))}`;
+}
+
+function renderTransactions(transactions) {
+  const listEl = document.getElementById("transactionList");
+  listEl.innerHTML = "";
+  txById = {};
+
+  if (transactions.length === 0) {
+    listEl.innerHTML = `
+            <div class="text-center p-5 text-muted">
+                <i class="fas fa-inbox fa-3x mb-3 text-secondary opacity-25"></i>
+                <p>この月の取引はまだありません</p>
+                <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#transactionModal" onclick="resetForm()">最初の取引を追加</button>
+            </div>`;
+    return;
+  }
+
+  let lastDate = "";
+  transactions.forEach((t) => {
+    txById[t.id] = t;
+
+    const tDate = t.date.split(" ")[0];
+    const dateObj = new Date(t.date.replace(" ", "T"));
+    const dow = WEEKDAYS_JA[dateObj.getDay()];
+
+    if (tDate !== lastDate) {
+      const dateHeader = document.createElement("div");
+      dateHeader.className =
+        "bg-light px-3 py-2 font-monospace fw-bold text-secondary border-bottom d-flex align-items-center";
+      const dowClass = dateObj.getDay() === 0 ? "bg-danger" : dateObj.getDay() === 6 ? "bg-primary" : "bg-secondary";
+      dateHeader.innerHTML = `<i class="far fa-calendar-alt me-2"></i>${tDate} <span class="small ms-2 fw-normal badge ${dowClass}">${dow}</span>`;
+      listEl.appendChild(dateHeader);
+      lastDate = tDate;
+    }
+
+    const itemContainer = document.createElement("div");
+    itemContainer.className = "list-group-item p-0 border-start-0 border-end-0";
+
+    const isIncome = t.type === "income";
+    const amountClass = isIncome ? "text-success" : "text-danger";
+    const sign = isIncome ? "+" : "";
+    const catName = t.category_name || "(未分類)";
+    const payName = t.payment_method_name || "-";
+    const uniqueId = `trans-${t.id}`;
+
+    const mainRow = document.createElement("div");
+    mainRow.className = "d-flex justify-content-between align-items-center p-3 transaction-header";
+    mainRow.setAttribute("data-bs-toggle", "collapse");
+    mainRow.setAttribute("data-bs-target", `#${uniqueId}`);
+    mainRow.setAttribute("role", "button");
+    mainRow.setAttribute("tabindex", "0");
+    mainRow.setAttribute("aria-controls", uniqueId);
+    mainRow.setAttribute("aria-expanded", "false");
+    mainRow.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter" || ev.key === " ") {
+        ev.preventDefault();
+        mainRow.click();
+      }
+    });
+
+    mainRow.innerHTML = `
+            <div class="d-flex align-items-center flex-grow-1 overflow-hidden">
+                <div class="me-3 text-center" style="width: 40px;">
+                    <i class="fas ${isIncome ? "fa-arrow-down text-success" : "fa-shopping-cart text-muted"} fa-lg"></i>
+                </div>
+                <div class="flex-grow-1 min-w-0">
+                    <div class="fw-bold text-truncate">${escapeHtml(t.description)}</div>
+                    <div class="small text-muted text-truncate">
+                        <span class="badge bg-light text-dark border me-1">${escapeHtml(catName)}</span>
+                        <span>${escapeHtml(payName)}</span>
+                        ${t.items && t.items.length > 0 ? `<span class="badge text-bg-info ms-1"><i class="fas fa-layer-group"></i> ${t.items.length}</span>` : ""}
+                    </div>
+                </div>
+            </div>
+            <div class="${amountClass} fs-5 fw-bold text-nowrap ms-2">
+                ${sign}${formatCurrency(t.amount)}
+            </div>
+        `;
+
+    const collapseDiv = document.createElement("div");
+    collapseDiv.id = uniqueId;
+    collapseDiv.className = "collapse bg-light border-top";
+
+    let itemsHtml = "";
+    if (t.items && t.items.length > 0) {
+      itemsHtml = '<div class="mt-2"><small class="text-muted fw-bold">内訳:</small><ul class="list-group list-group-sm mt-1 mb-2">';
+      t.items.forEach((item) => {
+        itemsHtml += `
+                    <li class="list-group-item d-flex justify-content-between align-items-center bg-white px-2 py-1">
+                        <span>${escapeHtml(item.item_name)} <span class="badge bg-light text-secondary border ms-1">${escapeHtml(item.category_name || "")}</span></span>
+                        <span>¥${Number(item.amount).toLocaleString()}</span>
+                    </li>`;
+      });
+      itemsHtml += "</ul></div>";
+    }
+
+    const memoHtml = t.memo
+      ? `<div class="mt-2 small text-muted"><i class="far fa-comment-dots me-1"></i>${escapeHtml(t.memo)}</div>`
+      : "";
+
+    collapseDiv.innerHTML = `
+            <div class="p-3">
+                ${memoHtml}
+                ${itemsHtml}
+                <div class="mt-3 text-end">
+                    <button class="btn btn-sm btn-outline-secondary dup-btn me-1" data-id="${escapeHtml(t.id)}">
+                        <i class="fas fa-copy me-1"></i>複製
+                    </button>
+                    <button class="btn btn-sm btn-outline-primary edit-btn" data-id="${escapeHtml(t.id)}">
+                        <i class="fas fa-edit me-1"></i>編集
+                    </button>
+                </div>
+            </div>
+        `;
+    collapseDiv.querySelector(".edit-btn").addEventListener("click", () => {
+      openEditModal(txById[t.id]);
+    });
+    collapseDiv.querySelector(".dup-btn").addEventListener("click", () => {
+      openEditModal(txById[t.id], "duplicate");
+    });
+
+    collapseDiv.addEventListener("show.bs.collapse", () => mainRow.setAttribute("aria-expanded", "true"));
+    collapseDiv.addEventListener("hide.bs.collapse", () => mainRow.setAttribute("aria-expanded", "false"));
+
+    itemContainer.appendChild(mainRow);
+    itemContainer.appendChild(collapseDiv);
+    listEl.appendChild(itemContainer);
+  });
+}
+
+function toggleTypeUI() {
+  const type = document.getElementById("t_type").value;
+  const payContainer = document.getElementById("paymentMethodContainer");
+  if (payContainer) {
+    payContainer.style.display = type === "income" ? "none" : "";
+  }
+}
+
+function syncAmountReadonly() {
+  const hasItems = document.querySelectorAll(".item-row").length > 0;
+  const amountEl = document.getElementById("t_amount");
+  const help = document.getElementById("amountHelp");
+  if (!amountEl) return;
+  amountEl.readOnly = hasItems;
+  amountEl.classList.toggle("bg-light", hasItems);
+  if (help) {
+    help.textContent = hasItems
+      ? "内訳から自動計算されています（直接編集不可）"
+      : "内訳がある場合は自動計算されます";
+  }
+}
+
+function resetForm() {
+  document.getElementById("transactionForm").reset();
+  document.getElementById("transactionForm").querySelectorAll(".is-invalid").forEach((el) => el.classList.remove("is-invalid"));
+  document.getElementById("t_id").value = "";
+
+  const now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  document.getElementById("t_date").value = now.toISOString().slice(0, 16);
+
+  document.getElementById("itemsContainer").innerHTML = "";
+  document.getElementById("deleteBtnContainer").style.display = "none";
+  document.getElementById("modalTitle").textContent = "取引登録";
+  toggleTypeUI();
+  syncAmountReadonly();
+}
+
+function openEditModal(t, mode = "edit") {
+  if (!t) return;
+  resetForm();
+  const isDup = mode === "duplicate";
+  document.getElementById("modalTitle").textContent = isDup ? "取引の複製" : "取引編集";
+  document.getElementById("deleteBtnContainer").style.display = isDup ? "none" : "block";
+
+  document.getElementById("t_id").value = isDup ? "" : t.id;
+  if (isDup) {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    document.getElementById("t_date").value = now.toISOString().slice(0, 16);
+  } else {
+    document.getElementById("t_date").value = t.date.replace(" ", "T").slice(0, 16);
+  }
+  document.getElementById("t_type").value = t.type;
+  document.getElementById("t_description").value = t.description;
+  document.getElementById("t_payment_method").value = t.payment_method_id || "";
+  document.getElementById("t_amount").value = t.amount;
+  document.getElementById("t_category").value = t.category_id || "";
+  document.getElementById("t_memo").value = t.memo || "";
+
+  if (t.items && t.items.length > 0) {
+    t.items.forEach((item) => addItemRow(item));
+  }
+  toggleTypeUI();
+  syncAmountReadonly();
+  transactionModal.show();
+}
+
+function addItemRow(data = null) {
+  const container = document.getElementById("itemsContainer");
+  const row = document.createElement("div");
+  row.className = "row g-2 mb-2 align-items-end item-row";
+
+  let catOptions = '<option value="">(分類なし)</option>';
+  metadata.categories.forEach((c) => {
+    const selected = data && String(data.category_id) === String(c.id) ? "selected" : "";
+    catOptions += `<option value="${c.id}" ${selected}>${escapeHtml(c.name)}</option>`;
+  });
+
+  const nameVal = data ? escapeHtml(data.item_name) : "";
+  const amountVal = data ? escapeHtml(data.amount) : "";
+
+  row.innerHTML = `
+        <div class="col-5">
+            <input type="text" class="form-control form-control-sm item-name" placeholder="品名" aria-label="品名" value="${nameVal}">
+        </div>
+        <div class="col-3">
+            <input type="number" class="form-control form-control-sm item-amount" placeholder="金額" aria-label="金額" min="0" step="1" inputmode="numeric" value="${amountVal}" oninput="updateTotalAmount()">
+        </div>
+        <div class="col-3">
+             <select class="form-select form-select-sm item-category" aria-label="カテゴリー">${catOptions}</select>
+        </div>
+        <div class="col-1">
+            <button type="button" class="btn btn-sm btn-outline-danger" aria-label="この品目を削除" onclick="this.closest('.item-row').remove(); updateTotalAmount(); syncAmountReadonly();">&times;</button>
+        </div>
+    `;
+  container.appendChild(row);
+  syncAmountReadonly();
+}
+
+function updateTotalAmount() {
+  const rows = document.querySelectorAll(".item-row");
+  let total = 0;
+  document.querySelectorAll(".item-amount").forEach((input) => {
+    total += Number(input.value) || 0;
+  });
+  if (rows.length > 0) {
+    document.getElementById("t_amount").value = total;
+  }
+}
+
+async function saveTransaction() {
+  const form = document.getElementById("transactionForm");
+  const id = document.getElementById("t_id").value;
+  const saveBtn = document.getElementById("saveBtn");
+
+  const items = [];
+  let itemError = false;
+  document.querySelectorAll(".item-row").forEach((row) => {
+    const nameEl = row.querySelector(".item-name");
+    const amountEl = row.querySelector(".item-amount");
+    const name = nameEl.value.trim();
+    const amount = amountEl.value;
+    nameEl.classList.remove("is-invalid");
+    amountEl.classList.remove("is-invalid");
+
+    if (name === "" && amount === "") return;
+    if (name === "" || amount === "" || Number(amount) < 0) {
+      if (name === "") nameEl.classList.add("is-invalid");
+      if (amount === "" || Number(amount) < 0) amountEl.classList.add("is-invalid");
+      itemError = true;
+      return;
+    }
+    items.push({
+      item_name: name,
+      amount: Number(amount),
+      category_id: row.querySelector(".item-category").value || null,
     });
   });
-}
 
-function collectItems() {
-  return Array.from(document.querySelectorAll("#itemRows .item-row"))
-    .map((row) => ({
-      item_name: row.querySelector(".item-name").value.trim(),
-      amount: Number(row.querySelector(".item-amount").value || 0),
-      category_id: row.querySelector(".item-category").value || null,
-    }))
-    .filter((item) => item.item_name);
-}
+  if (itemError) {
+    showToast("内訳は品名と0以上の金額を両方入力してください。", "error");
+    return;
+  }
 
-function recomputeAmountFromItems() {
-  const items = collectItems();
-  const amountInput = document.querySelector('#transactionForm input[name="amount"]');
-  if (items.length) {
-    amountInput.value = items.reduce((sum, item) => sum + item.amount, 0);
-    amountInput.readOnly = true;
-  } else {
-    amountInput.readOnly = false;
+  if (!form.reportValidity()) return;
+
+  const payload = {
+    csrf_token: CSRF_TOKEN,
+    id: id || null,
+    date: document.getElementById("t_date").value,
+    type: document.getElementById("t_type").value,
+    description: document.getElementById("t_description").value,
+    payment_method_id: document.getElementById("t_payment_method").value || null,
+    category_id: document.getElementById("t_category").value || null,
+    amount: Number(document.getElementById("t_amount").value),
+    memo: document.getElementById("t_memo").value,
+    items: items,
+  };
+
+  setBtnLoading(saveBtn, true);
+  try {
+    const res = await fetch("/api/transactions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": CSRF_TOKEN },
+      body: JSON.stringify(payload),
+    });
+    if (handleAuthError(res)) return;
+    const json = await res.json();
+
+    if (res.ok) {
+      transactionModal.hide();
+      showToast(id ? "取引を更新しました" : "取引を登録しました");
+      refreshMonthlyView();
+    } else {
+      showToast(json.error || "保存に失敗しました", "error");
+    }
+  } catch (e) {
+    console.error(e);
+    showToast("通信エラーが発生しました", "error");
+  } finally {
+    setBtnLoading(saveBtn, false);
   }
 }
 
-function renderTransactionList(transactions, meta) {
-  const categoryNames = Object.fromEntries(meta.categories.map((c) => [c.id, c.name]));
-  const paymentNames = Object.fromEntries(meta.payment_methods.map((p) => [p.id, p.name]));
+async function deleteTransaction() {
+  const id = document.getElementById("t_id").value;
+  if (!id) return;
 
-  txById = {};
-  const tbody = document.getElementById("transactionList");
-  tbody.innerHTML = "";
-  transactions.forEach((tx) => {
-    txById[tx.id] = tx;
-    const tr = document.createElement("tr");
-    tr.style.cursor = "pointer";
-    tr.innerHTML = `
-      <td>${escapeHtml(tx.date.slice(0, 10))}</td>
-      <td>${escapeHtml(tx.description)}</td>
-      <td>${escapeHtml(categoryNames[tx.category_id] || "")}</td>
-      <td>${escapeHtml(paymentNames[tx.payment_method_id] || "")}</td>
-      <td class="text-end">${formatCurrency(tx.amount)}</td>
-    `;
-    tr.addEventListener("click", () => openTransactionModal(tx));
-    tbody.appendChild(tr);
-  });
-}
+  const t = txById[id];
+  const label = t ? `「${t.description} ${t.date.split(" ")[0]} ${formatCurrency(t.amount)}」` : "この取引";
+  if (!confirm(`${label}を削除しますか？\nこの操作は取り消せません。`)) return;
 
-function openTransactionModal(tx) {
-  const form = document.getElementById("transactionForm");
-  form.reset();
-  document.getElementById("itemRows").innerHTML = "";
-  document.getElementById("deleteTransactionBtn").classList.toggle("d-none", !tx);
-  if (tx) {
-    form.id.value = tx.id;
-    form.date.value = tx.date.slice(0, 10);
-    form.type.value = tx.type;
-    form.description.value = tx.description;
-    form.memo.value = tx.memo || "";
-    setTimeout(() => {
-      form.payment_method_id.value = tx.payment_method_id || "";
-      form.category_id.value = tx.category_id || "";
-    }, 0);
-    (tx.items || []).forEach(addItemRow);
-    form.amount.value = tx.amount;
-    recomputeAmountFromItems();
-  } else {
-    form.date.value = currentMonth() + "-01";
+  const deleteBtn = document.getElementById("deleteBtn");
+  setBtnLoading(deleteBtn, true);
+  try {
+    const res = await fetch(`/api/transactions/${id}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": CSRF_TOKEN },
+      body: JSON.stringify({ csrf_token: CSRF_TOKEN }),
+    });
+    if (handleAuthError(res)) return;
+    const json = await res.json();
+
+    if (res.ok) {
+      transactionModal.hide();
+      showToast("取引を削除しました");
+      refreshMonthlyView();
+    } else {
+      showToast(json.error || "削除に失敗しました", "error");
+    }
+  } catch (e) {
+    console.error(e);
+    showToast("通信エラーが発生しました", "error");
+  } finally {
+    setBtnLoading(deleteBtn, false);
   }
-  new bootstrap.Modal(document.getElementById("transactionModal")).show();
 }
 
-async function loadMonth(month) {
-  document.getElementById("monthInput").value = month;
-  const params = new URLSearchParams(new FormData(document.getElementById("filterForm")));
-  params.set("month", month);
-
-  const [stats, prevStats, listing, categoryChart, paymentChart, budget] = await Promise.all([
-    apiFetchJson(`/api/summary?mode=monthly_stats&month=${month}`),
-    apiFetchJson(`/api/summary?mode=monthly_stats&month=${shiftMonth(month, -1)}`),
-    apiFetchJson(`/api/transactions?${params.toString()}`),
-    apiFetchJson(`/api/summary?mode=category_chart&month=${month}`),
-    apiFetchJson(`/api/summary?mode=payment_chart&month=${month}`),
-    apiFetchJson(`/api/budget?month=${month}`),
-  ]);
-
-  document.getElementById("incomeTotal").textContent = formatCurrency(stats.income);
-  document.getElementById("expenseTotal").textContent = formatCurrency(stats.expense);
-  const balanceEl = document.getElementById("balanceTotal");
-  balanceEl.textContent = formatCurrency(stats.balance);
-  balanceEl.className = "fs-4 " + (stats.balance >= 0 ? "balance-positive" : "balance-negative");
-
-  document.getElementById("incomeDelta").textContent = `前月比: ${formatCurrency(stats.income - prevStats.income)}`;
-  document.getElementById("expenseDelta").textContent = `前月比: ${formatCurrency(stats.expense - prevStats.expense)}`;
-  document.getElementById("balanceDelta").textContent = `前月比: ${formatCurrency(stats.balance - prevStats.balance)}`;
-
-  renderTransactionList(listing.transactions, await loadMetadata());
-  renderChart("categoryChart", categoryChart.map((r) => r.category), categoryChart.map((r) => r.value));
-  renderChart("paymentChart", paymentChart.map((r) => r.payment_method), paymentChart.map((r) => r.value));
-
-  const progressEl = document.getElementById("budgetProgress");
-  progressEl.innerHTML = budget.items
-    .map(
-      (item) => `
-    <div class="mb-2">
-      <div class="d-flex justify-content-between small"><span>${escapeHtml(item.category)}</span>
-        <span>${formatCurrency(item.spent)} / ${formatCurrency(item.budget)}</span></div>
-      <div class="budget-bar"><div class="budget-bar-fill ${item.ratio > 100 ? "over" : ""}"
-        style="width: ${Math.min(item.ratio, 100)}%"></div></div>
-    </div>`
-    )
-    .join("");
-
-  document.getElementById("csvExportLink").href = `/api/csv?${params.toString()}`;
+function toggleChartEmpty(canvasId, isEmpty) {
+  const ctx = document.getElementById(canvasId);
+  if (!ctx) return;
+  const box = ctx.closest(".chart-box");
+  const empty = box?.querySelector(".chart-empty");
+  if (empty) empty.classList.toggle("d-none", !isEmpty);
+  ctx.style.visibility = isEmpty ? "hidden" : "visible";
 }
 
-document.addEventListener("DOMContentLoaded", async () => {
-  const now = new Date();
-  document.getElementById("monthInput").value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+async function loadPieChart(canvasId, mode, monthValue) {
+  const ctx = document.getElementById(canvasId);
+  if (!ctx) return;
+  if (charts[canvasId]) {
+    charts[canvasId].destroy();
+    charts[canvasId] = null;
+  }
 
-  await loadFilterOptions();
-  await loadMonth(currentMonth());
+  try {
+    const res = await fetch(`/api/summary?mode=${mode}&month=${monthValue}`);
+    if (handleAuthError(res)) return;
+    const data = await res.json();
 
-  document.getElementById("prevMonthBtn").addEventListener("click", () => loadMonth(shiftMonth(currentMonth(), -1)));
-  document.getElementById("nextMonthBtn").addEventListener("click", () => loadMonth(shiftMonth(currentMonth(), 1)));
-  document.getElementById("monthInput").addEventListener("change", () => loadMonth(currentMonth()));
-  document.getElementById("filterForm").addEventListener("submit", (e) => {
-    e.preventDefault();
-    loadMonth(currentMonth());
-  });
-  document.getElementById("newTransactionBtn").addEventListener("click", () => openTransactionModal(null));
-  document.getElementById("addItemBtn").addEventListener("click", () => addItemRow());
-
-  document.getElementById("transactionForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const form = e.target;
-    const payload = {
-      id: form.id.value || undefined,
-      date: form.date.value,
-      type: form.type.value,
-      description: form.description.value,
-      payment_method_id: form.payment_method_id.value || null,
-      category_id: form.category_id.value || null,
-      amount: Number(form.amount.value || 0),
-      memo: form.memo.value,
-      items: collectItems(),
-    };
-    try {
-      await apiFetchJson("/api/transactions", { method: "POST", body: JSON.stringify(payload) });
-      bootstrap.Modal.getInstance(document.getElementById("transactionModal")).hide();
-      showToast("保存しました。");
-      loadMonth(currentMonth());
-    } catch (err) {
-      showToast(err.message);
+    if (!Array.isArray(data) || data.length === 0) {
+      toggleChartEmpty(canvasId, true);
+      return;
     }
-  });
+    toggleChartEmpty(canvasId, false);
 
-  document.getElementById("deleteTransactionBtn").addEventListener("click", async () => {
-    const id = document.querySelector('#transactionForm input[name="id"]').value;
-    if (!id) return;
-    try {
-      await apiFetchJson(`/api/transactions/${id}`, { method: "DELETE" });
-      bootstrap.Modal.getInstance(document.getElementById("transactionModal")).hide();
-      showToast("削除しました。");
-      loadMonth(currentMonth());
-    } catch (err) {
-      showToast(err.message);
-    }
-  });
-});
+    const labelKey = mode === "payment_chart" ? "payment_method" : "category";
+    charts[canvasId] = new Chart(ctx, {
+      type: "doughnut",
+      data: {
+        labels: data.map((d) => d[labelKey]),
+        datasets: [{ data: data.map((d) => d.value), backgroundColor: PIE_COLORS }],
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          tooltip: { callbacks: { label: (c) => `${c.label}: ${formatCurrency(c.parsed)}` } },
+        },
+      },
+    });
+  } catch (e) {
+    console.error(e);
+    toggleChartEmpty(canvasId, true);
+  }
+}

@@ -1,26 +1,58 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8">
-  <title>新規登録 - FMSv2</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap/bootstrap.min.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ユーザー登録 - FMS</title>
+    <link href="{{ url_for('static', filename='vendor/bootstrap/bootstrap.min.css') }}" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"
+          integrity="sha384-iw3OoTErCYJJB9mCa8LNS2hbsQ7M3C0EpIsO/H5+EGAkPGc6rk+V8i04oW/K5xq0" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
 </head>
 <body class="auth-page">
-  <div class="auth-card">
-    <h1>FMSv2 新規登録</h1>
-    {% if success %}
-      <p class="success">登録が完了しました。<a href="{{ url_for('auth.login') }}">ログイン</a>してください。</p>
-    {% else %}
-      {% if error %}<p class="error">{{ error }}</p>{% endif %}
-      <form method="post" action="{{ url_for('auth.register') }}">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <label>ユーザー名 <input type="text" name="username" required></label>
-        <label>パスワード <input type="password" name="password" required></label>
-        <button type="submit">登録</button>
-      </form>
-    {% endif %}
-    <p><a href="{{ url_for('auth.login') }}">ログインへ戻る</a></p>
-  </div>
+    <div class="card card-login">
+        <div class="brand-header brand-header--green">
+            <h1><i class="fas fa-user-plus me-2"></i>FMS</h1>
+            <p class="mb-0 opacity-75">Sign Up</p>
+        </div>
+        <div class="card-body p-4">
+            {% if success %}
+                <div class="text-center py-4">
+                    <div class="text-success mb-3"><i class="fas fa-check-circle fa-4x"></i></div>
+                    <h4>登録完了</h4>
+                    <p class="text-muted">アカウントが作成されました。</p>
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('auth.login') }}" class="btn btn-success">ログインページへ</a>
+                    </div>
+                </div>
+            {% else %}
+                <h4 class="card-title text-center mb-4">新規登録</h4>
+
+                {% if error %}
+                    <div class="alert alert-danger py-2 small"><i class="fas fa-exclamation-circle me-1"></i>{{ error }}</div>
+                {% endif %}
+
+                <form method="POST" action="{{ url_for('auth.register') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <div class="mb-3">
+                        <label class="form-label" for="username">ユーザーID (半角英数推奨)</label>
+                        <input type="text" name="username" id="username" class="form-control" placeholder="例: yamada" minlength="3" required>
+                        <div class="form-text">3文字以上</div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label" for="password">パスワード</label>
+                        <input type="password" name="password" id="password" class="form-control" placeholder="8文字以上" minlength="8" required>
+                        <div class="form-text">8文字以上</div>
+                    </div>
+                    <div class="d-grid mb-3">
+                        <button type="submit" class="btn btn-success py-2 fw-bold">登録する</button>
+                    </div>
+                    <div class="text-center">
+                        <a href="{{ url_for('auth.login') }}" class="small text-decoration-none">ログインへ戻る</a>
+                    </div>
+                </form>
+            {% endif %}
+        </div>
+    </div>
 </body>
 </html>

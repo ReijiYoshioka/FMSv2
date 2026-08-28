@@ -1,68 +1,78 @@
-const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').content;
+const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content || "";
 
-let toastInstance = null;
-function showToast(message) {
+let metadata = { categories: [], payment_methods: [] };
+let toast;
+
+document.addEventListener("DOMContentLoaded", () => {
   const toastEl = document.getElementById("appToast");
-  if (!toastEl) {
+  if (toastEl) toast = new bootstrap.Toast(toastEl, { delay: 4000 });
+});
+
+function showToast(message, type = "success") {
+  const el = document.getElementById("appToast");
+  const body = document.getElementById("appToastBody");
+  if (!el || !body || !toast) {
+    if (type === "error") console.error(message);
     return;
   }
-  toastEl.querySelector(".toast-body").textContent = message;
-  if (!toastInstance) {
-    toastInstance = new bootstrap.Toast(toastEl);
-  }
-  toastInstance.show();
+  el.classList.remove("text-bg-success", "text-bg-danger", "text-bg-info");
+  el.classList.add(type === "error" ? "text-bg-danger" : type === "info" ? "text-bg-info" : "text-bg-success");
+  body.textContent = message;
+  toast.show();
 }
 
-function escapeHtml(text) {
-  const div = document.createElement("div");
-  div.textContent = text ?? "";
-  return div.innerHTML;
+function formatCurrency(num) {
+  const n = Number(num) || 0;
+  return (n < 0 ? "-¥" : "¥") + Math.abs(n).toLocaleString();
 }
 
-function formatCurrency(amount) {
-  return "¥" + Number(amount || 0).toLocaleString("ja-JP");
+function escapeHtml(str) {
+  if (str === null || str === undefined) return "";
+  return String(str).replace(
+    /[&<>'"]/g,
+    (tag) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[tag]
+  );
 }
 
-async function handleAuthError(res) {
+function shiftMonth(monthStr, delta) {
+  const [y, m] = monthStr.split("-").map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function handleAuthError(res) {
   if (res.status === 401) {
-    showToast("認証が必要です。ログインページへ移動します。");
+    showToast("セッションが切れました。ログイン画面に移動します。", "error");
     setTimeout(() => {
       window.location.href = "/login";
-    }, 1000);
+    }, 1500);
     return true;
   }
   return false;
 }
 
-async function apiFetch(url, options = {}) {
-  const opts = { ...options, headers: { ...(options.headers || {}) } };
-  if (opts.method && opts.method !== "GET") {
-    opts.headers["X-CSRF-Token"] = CSRF_TOKEN;
-    if (opts.body && !(opts.body instanceof FormData) && !opts.headers["Content-Type"]) {
-      opts.headers["Content-Type"] = "application/json";
-    }
-  }
-  const res = await fetch(url, opts);
-  if (await handleAuthError(res)) {
-    throw new Error("unauthorized");
-  }
-  return res;
-}
-
-async function apiFetchJson(url, options = {}) {
-  const res = await apiFetch(url, options);
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.error || "リクエストに失敗しました。");
-  }
-  return data;
-}
-
-let metadataCache = null;
 async function loadMetadata() {
-  if (metadataCache) {
-    return metadataCache;
+  try {
+    const res = await fetch("/api/transactions?action=metadata");
+    if (handleAuthError(res)) return;
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    metadata.categories = data.categories || [];
+    metadata.payment_methods = data.payment_methods || [];
+  } catch (e) {
+    console.error("Failed to load metadata", e);
+    showToast("マスタデータの取得に失敗しました。ページを再読み込みしてください。", "error");
   }
-  metadataCache = await apiFetchJson("/api/transactions?action=metadata");
-  return metadataCache;
+}
+
+function setBtnLoading(btn, loading) {
+  if (!btn) return;
+  if (loading) {
+    btn.disabled = true;
+    btn.dataset.originalHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>処理中...';
+  } else {
+    btn.disabled = false;
+    if (btn.dataset.originalHtml) btn.innerHTML = btn.dataset.originalHtml;
+  }
 }

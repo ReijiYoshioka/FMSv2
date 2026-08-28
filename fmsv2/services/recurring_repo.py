@@ -8,7 +8,12 @@ VALID_TYPES = ("income", "expense")
 
 def list_recurring(db, user_id, month):
     rows = db.execute(
-        "SELECT * FROM recurring_transactions WHERE user_id = ? ORDER BY id", (user_id,)
+        "SELECT r.*, c.name AS category_name, p.name AS payment_method_name "
+        "FROM recurring_transactions r "
+        "LEFT JOIN categories c ON c.id = r.category_id "
+        "LEFT JOIN payment_methods p ON p.id = r.payment_method_id "
+        "WHERE r.user_id = ? ORDER BY r.id",
+        (user_id,),
     ).fetchall()
     applied_rows = db.execute(
         "SELECT recurring_id FROM recurring_applications WHERE user_id = ? AND month = ?",
