@@ -1,0 +1,19 @@
+# 機密・実行時生成物
+.env
+instance/*.db
+logs/*.txt
+logs/.prune_state
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# OS / エディタ
+.DS_Store
+Thumbs.db
+*.swp
+*~

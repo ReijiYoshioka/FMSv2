@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}レポート - FMSv2{% endblock %}
+{% block content %}
+<h5>年次レポート</h5>
+<div class="d-flex align-items-center mb-3 gap-2">
+  <input type="number" id="yearInput" class="form-control" style="max-width: 140px;">
+</div>
+<div class="row mb-3">
+  <div class="col-md-4"><div class="card"><div class="card-body">
+    <div class="text-muted">年間収入</div><div class="fs-4" id="annualIncome">¥0</div>
+  </div></div></div>
+  <div class="col-md-4"><div class="card"><div class="card-body">
+    <div class="text-muted">年間支出</div><div class="fs-4" id="annualExpense">¥0</div>
+  </div></div></div>
+  <div class="col-md-4"><div class="card"><div class="card-body">
+    <div class="text-muted">年間収支差額</div><div class="fs-4" id="annualBalance">¥0</div>
+  </div></div></div>
+</div>
+<div class="row mb-4">
+  <div class="col-md-4"><div class="card"><div class="card-body">
+    <h6>カテゴリー別支出</h6><canvas id="annualCategoryChart"></canvas>
+  </div></div></div>
+  <div class="col-md-4"><div class="card"><div class="card-body">
+    <h6>決済手段別支出</h6><canvas id="annualPaymentChart"></canvas>
+  </div></div></div>
+  <div class="col-md-4"><div class="card"><div class="card-body">
+    <h6>月別収支推移</h6><canvas id="trendChart"></canvas>
+  </div></div></div>
+</div>
+
+<h5>月次レポート</h5>
+<div class="d-flex align-items-center mb-3 gap-2">
+  <input type="month" id="monthInput" class="form-control" style="max-width: 200px;">
+</div>
+<div class="row">
+  <div class="col-md-6"><div class="card"><div class="card-body">
+    <h6>カテゴリー別支出</h6><canvas id="monthlyCategoryChart"></canvas>
+  </div></div></div>
+  <div class="col-md-6"><div class="card"><div class="card-body">
+    <h6>決済手段別支出</h6><canvas id="monthlyPaymentChart"></canvas>
+  </div></div></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/graphs.js') }}"></script>
+{% endblock %}

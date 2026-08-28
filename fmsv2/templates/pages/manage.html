@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}管理 - FMSv2{% endblock %}
+{% block content %}
+<div class="row">
+  <div class="col-md-6">
+    <div class="card mb-4"><div class="card-body">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h5 class="mb-0">定期取引</h5>
+        <div>
+          <input type="month" id="recurringMonthInput" class="form-control form-control-sm d-inline-block" style="width: 140px;">
+          <button id="applyRecurringBtn" class="btn btn-sm btn-primary">対象月に一括適用</button>
+          <button id="newRecurringBtn" class="btn btn-sm btn-outline-primary">+ 追加</button>
+        </div>
+      </div>
+      <table class="table table-sm">
+        <thead><tr><th>内容</th><th>日</th><th>金額</th><th>状態</th><th></th></tr></thead>
+        <tbody id="recurringList"></tbody>
+      </table>
+    </div></div>
+
+    <div class="card mb-4"><div class="card-body">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h5 class="mb-0">予算設定</h5>
+        <div>
+          <input type="month" id="budgetMonthInput" class="form-control form-control-sm d-inline-block" style="width: 140px;">
+          <button id="copyPrevBudgetBtn" class="btn btn-sm btn-outline-secondary">前月をコピー</button>
+        </div>
+      </div>
+      <table class="table table-sm"><tbody id="budgetList"></tbody></table>
+      <button id="saveBudgetBtn" class="btn btn-primary btn-sm">保存</button>
+    </div></div>
+
+    <div class="card mb-4"><div class="card-body">
+      <h5>CSV インポート</h5>
+      <form id="csvImportForm" class="d-flex gap-2">
+        <input type="file" name="file" accept=".csv" class="form-control" required>
+        <button type="submit" class="btn btn-primary">インポート</button>
+      </form>
+      <div id="csvImportResult" class="small mt-2"></div>
+    </div></div>
+  </div>
+
+  <div class="col-md-6">
+    <div class="card mb-4"><div class="card-body">
+      <h5>マスタ編集</h5>
+      <ul class="nav nav-tabs" role="tablist">
+        <li class="nav-item"><button class="nav-link active" data-kind="category">カテゴリー</button></li>
+        <li class="nav-item"><button class="nav-link" data-kind="payment">決済手段</button></li>
+      </ul>
+      <table class="table table-sm mt-2"><tbody id="masterList"></tbody></table>
+      <form id="masterAddForm" class="d-flex gap-2">
+        <input type="text" name="name" class="form-control" placeholder="新しい名前" required>
+        <button type="submit" class="btn btn-outline-primary">追加</button>
+      </form>
+    </div></div>
+
+    <div class="card"><div class="card-body">
+      <h5>パスワード変更</h5>
+      <form id="passwordForm">
+        <div class="mb-2"><label>現在のパスワード<input type="password" class="form-control" name="current_password" required></label></div>
+        <div class="mb-2"><label>新しいパスワード<input type="password" class="form-control" name="new_password" required></label></div>
+        <button type="submit" class="btn btn-primary">変更する</button>
+      </form>
+    </div></div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/manage.js') }}"></script>
+{% endblock %}
