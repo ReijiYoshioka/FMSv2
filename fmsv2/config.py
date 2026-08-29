@@ -10,6 +10,10 @@ class Config:
     HEALTHCHECK_TOKEN = os.environ.get("FMS_HEALTHCHECK_TOKEN", "")
     FORCE_HTTPS = os.environ.get("FMS_FORCE_HTTPS", "0") == "1"
 
+    GEMINI_API_KEY = os.environ.get("FMS_GEMINI_API_KEY", "")
+    GEMINI_MODEL = os.environ.get("FMS_GEMINI_MODEL", "gemini-3.5-flash-lite")
+    RECEIPT_DAILY_LIMIT = int(os.environ.get("FMS_RECEIPT_DAILY_LIMIT", "30"))
+
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
     TESTING = False

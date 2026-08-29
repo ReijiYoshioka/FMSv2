@@ -8,6 +8,9 @@
             <input type="month" id="monthSelector" class="form-control" aria-label="対象月" style="max-width: 160px;">
             <button class="btn btn-outline-secondary" type="button" id="nextMonthBtn" aria-label="次の月へ"><i class="fas fa-chevron-right"></i></button>
         </div>
+        <button class="btn btn-outline-primary text-nowrap" data-bs-toggle="modal" data-bs-target="#receiptModal" onclick="resetReceiptForm()">
+            <i class="fas fa-camera"></i> レシートから登録
+        </button>
         <button class="btn btn-primary text-nowrap" data-bs-toggle="modal" data-bs-target="#transactionModal" onclick="resetForm()">
             <i class="fas fa-plus"></i> 登録
         </button>
@@ -209,6 +212,30 @@
                      <button type="button" class="btn btn-danger me-2" id="deleteBtn" onclick="deleteTransaction()">削除</button>
                 </div>
                 <button type="button" class="btn btn-primary" id="saveBtn" onclick="saveTransaction()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="receiptModal" tabindex="-1" aria-hidden="true" aria-labelledby="receiptModalTitle">
+    <div class="modal-dialog modal-fullscreen-sm-down">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="receiptModalTitle">レシートから登録</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small">
+                    レシートの写真を選ぶと、日付・店名・品目内訳を自動で読み取って取引登録フォームに反映します。
+                    内容は保存前に必ず確認してください。
+                </p>
+                <div class="input-group input-group-sm mb-2">
+                    <input type="file" id="receiptFile" class="form-control" accept="image/*" capture="environment" aria-label="レシート画像">
+                </div>
+                <div id="receiptResult" class="small"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-primary" id="receiptSubmitBtn" onclick="submitReceipt()">読み取る</button>
             </div>
         </div>
     </div>

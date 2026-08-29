@@ -1,4 +1,5 @@
 let transactionModal;
+let receiptModal;
 let charts = {};
 let txById = {};
 let searchFilter = {};
@@ -12,6 +13,8 @@ const PIE_COLORS = [
 document.addEventListener("DOMContentLoaded", async () => {
   const modalEl = document.getElementById("transactionModal");
   if (modalEl) transactionModal = new bootstrap.Modal(modalEl);
+  const receiptModalEl = document.getElementById("receiptModal");
+  if (receiptModalEl) receiptModal = new bootstrap.Modal(receiptModalEl);
 
   await loadMetadata();
   populateSelects();
@@ -466,6 +469,60 @@ function updateTotalAmount() {
   if (rows.length > 0) {
     document.getElementById("t_amount").value = total;
   }
+}
+
+// ---- レシート読取 ----
+function resetReceiptForm() {
+  document.getElementById("receiptFile").value = "";
+  document.getElementById("receiptResult").innerHTML = "";
+}
+
+async function submitReceipt() {
+  const fileInput = document.getElementById("receiptFile");
+  const resultEl = document.getElementById("receiptResult");
+  const btn = document.getElementById("receiptSubmitBtn");
+  if (!fileInput.files || fileInput.files.length === 0) {
+    showToast("レシート画像を選択してください", "error");
+    return;
+  }
+  const fd = new FormData();
+  fd.append("image", fileInput.files[0]);
+  fd.append("csrf_token", CSRF_TOKEN);
+  resultEl.innerHTML = "";
+  setBtnLoading(btn, true);
+  try {
+    const res = await fetch("/api/receipts", {
+      method: "POST",
+      headers: { "X-CSRF-Token": CSRF_TOKEN },
+      body: fd,
+    });
+    if (handleAuthError(res)) return;
+    const json = await res.json();
+    if (res.ok) {
+      receiptModal.hide();
+      applyReceiptResult(json);
+    } else {
+      resultEl.innerHTML = `<div class="alert alert-danger py-2 mb-0">${escapeHtml(json.error || "読み取りに失敗しました")}</div>`;
+    }
+  } catch (e) {
+    console.error(e);
+    resultEl.innerHTML = '<div class="alert alert-danger py-2 mb-0">通信エラーが発生しました</div>';
+  } finally {
+    setBtnLoading(btn, false);
+  }
+}
+
+function applyReceiptResult(data) {
+  resetForm();
+  document.getElementById("modalTitle").textContent = "取引登録（レシート読取）";
+  if (data.date) document.getElementById("t_date").value = `${data.date}T00:00`;
+  if (data.description) document.getElementById("t_description").value = data.description;
+  (data.items || []).forEach((item) => addItemRow(item));
+  toggleTypeUI();
+  syncAmountReadonly();
+  updateTotalAmount();
+  showToast("レシートを読み取りました。内容を確認して保存してください。");
+  transactionModal.show();
 }
 
 async function saveTransaction() {

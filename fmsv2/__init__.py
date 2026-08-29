@@ -33,6 +33,7 @@ def create_app(test_config=None):
         api_budget,
         api_csv,
         api_masters,
+        api_receipts,
         api_recurring,
         api_summary,
         api_transactions,
@@ -50,6 +51,7 @@ def create_app(test_config=None):
     app.register_blueprint(api_masters.bp)
     app.register_blueprint(api_account.bp)
     app.register_blueprint(api_csv.bp)
+    app.register_blueprint(api_receipts.bp)
     app.register_blueprint(healthcheck.bp)
 
     return app

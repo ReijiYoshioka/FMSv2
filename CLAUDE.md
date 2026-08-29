@@ -14,6 +14,7 @@
 | バックエンド | Python + Flask |
 | データベース | SQLite（`sqlite3`標準ライブラリで生SQL、ORM不使用） |
 | フロントエンド | HTML / CSS / JavaScript + Bootstrap 5 |
+| 外部API | Gemini API（`google-genai`、レシート読取機能で使用。任意機能でAPIキー未設定でも他機能は動く） |
 | テスト | pytest |
 | Lint/Format | ruff / black |
 
@@ -47,3 +48,4 @@
 - 旧版（`../FMS-main/`）にはドキュメントが一切ない。機能仕様は必ずコードを読んで確認する
 - 定期取引の「二重適用防止」など、旧版READMEに記載された挙動は実装漏れしやすいため個別に確認する
 - 旧版の関数命名はcamelCaseとsnake_caseが混在している。新版はPython規約（snake_case）に統一する
+- レシート読取機能は読み取った画像自体を保存しない（Geminiに送って抽出結果を受け取ったら即破棄）。ユーザー単位で日次呼び出し上限があり（`receipt_read_attempts`テーブル、`FMS_RECEIPT_DAILY_LIMIT`で調整）、抽出結果は既存の取引登録モーダルに事前入力するだけで、保存前に必ずユーザーが確認する
