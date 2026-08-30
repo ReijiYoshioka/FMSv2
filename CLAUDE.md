@@ -48,4 +48,8 @@
 - 旧版（`../FMS-main/`）にはドキュメントが一切ない。機能仕様は必ずコードを読んで確認する
 - 定期取引の「二重適用防止」など、旧版READMEに記載された挙動は実装漏れしやすいため個別に確認する
 - 旧版の関数命名はcamelCaseとsnake_caseが混在している。新版はPython規約（snake_case）に統一する
-- レシート読取機能は読み取った画像自体を保存しない（Geminiに送って抽出結果を受け取ったら即破棄）。ユーザー単位で日次呼び出し上限があり（`receipt_read_attempts`テーブル、`FMS_RECEIPT_DAILY_LIMIT`で調整）、抽出結果は既存の取引登録モーダルに事前入力するだけで、保存前に必ずユーザーが確認する
+- レシート読取機能は読み取った画像自体を保存しない（Geminiに送って抽出結果を受け取ったら即破棄）。抽出結果は既存の取引登録モーダルに事前入力するだけで、保存前に必ずユーザーが確認する
+- Gemini呼び出しの日次上限は汎用テーブル`api_call_attempts`（`endpoint`列で機能ごとに区別。`security/api_rate_limit.py`）で管理する。機能を追加する際はテーブルを増やさずここに乗せる
+- 店名オートコンプリート（Google Maps Grounding）は位置情報（緯度経度）を永続保存しない。店名の文字列だけをdescriptionに反映する。GroundingツールはGeminiの`response_schema`（構造化JSON出力）と併用できないため、`grounding_metadata.grounding_chunks`から候補を抽出する方式にしている（`gemini_client.suggest_places`）
+- チャット自動入力は会話履歴をサーバー側に保存しない（ブラウザのJS変数だけで保持し、モーダルを閉じれば消える＝日をまたいで引き継がれない）。1往復で情報が足りなければGeminiがquestionを1つだけ返し、最大6往復で打ち切る（`chat_service.MAX_TURNS`）
+- `.env`は`wsgi.py`が`python-dotenv`で読み込む。`flask --app fmsv2:create_app run`のように`wsgi.py`を経由しない起動方法では`.env`が読み込まれず`FMS_SECRET_KEY`未設定エラーになる。デプロイ手順は`DEPLOY.md`を参照

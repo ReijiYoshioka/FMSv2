@@ -18,12 +18,20 @@ CREATE TABLE IF NOT EXISTS login_attempts (
 );
 CREATE INDEX IF NOT EXISTS idx_login_attempts_ip_time ON login_attempts (ip_address, attempted_at);
 
-CREATE TABLE IF NOT EXISTS receipt_read_attempts (
+CREATE TABLE IF NOT EXISTS register_attempts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    ip_address TEXT NOT NULL,
     attempted_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
-CREATE INDEX IF NOT EXISTS idx_receipt_attempts_user_time ON receipt_read_attempts (user_id, attempted_at);
+CREATE INDEX IF NOT EXISTS idx_register_attempts_ip_time ON register_attempts (ip_address, attempted_at);
+
+CREATE TABLE IF NOT EXISTS api_call_attempts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    endpoint TEXT NOT NULL,
+    attempted_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_api_call_attempts_user_endpoint_time ON api_call_attempts (user_id, endpoint, attempted_at);
 
 CREATE TABLE IF NOT EXISTS categories (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

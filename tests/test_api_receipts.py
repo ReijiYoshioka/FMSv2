@@ -138,7 +138,7 @@ def test_daily_limit_exceeded(auth_client, app):
     with app.app_context():
         db = get_db()
         for _ in range(3):
-            db.execute("INSERT INTO receipt_read_attempts (user_id) VALUES (1)")
+            db.execute("INSERT INTO api_call_attempts (user_id, endpoint) VALUES (1, 'receipt')")
         db.commit()
     resp = auth_client.post(
         "/api/receipts",

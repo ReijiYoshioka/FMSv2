@@ -1,6 +1,11 @@
 let transactionModal;
 let receiptModal;
+let chatModal;
 let charts = {};
+let currentLat = null;
+let currentLng = null;
+let descriptionDebounceTimer = null;
+let chatMessages = [];
 let txById = {};
 let searchFilter = {};
 
@@ -15,6 +20,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (modalEl) transactionModal = new bootstrap.Modal(modalEl);
   const receiptModalEl = document.getElementById("receiptModal");
   if (receiptModalEl) receiptModal = new bootstrap.Modal(receiptModalEl);
+  const chatModalEl = document.getElementById("chatModal");
+  if (chatModalEl) chatModal = new bootstrap.Modal(chatModalEl);
+  document.getElementById("chatInput")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") sendChatMessage();
+  });
+  setupDescriptionSuggestions();
 
   await loadMetadata();
   populateSelects();
@@ -382,10 +393,94 @@ function syncAmountReadonly() {
   }
 }
 
+function cacheGeolocation() {
+  if (!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      currentLat = pos.coords.latitude;
+      currentLng = pos.coords.longitude;
+    },
+    () => {
+      currentLat = null;
+      currentLng = null;
+    },
+    { timeout: 5000 }
+  );
+}
+
+function setupDescriptionSuggestions() {
+  const input = document.getElementById("t_description");
+  if (!input) return;
+  input.addEventListener("input", () => {
+    clearTimeout(descriptionDebounceTimer);
+    const q = input.value.trim();
+    if (q.length < 2) {
+      hideDescriptionSuggestions();
+      return;
+    }
+    descriptionDebounceTimer = setTimeout(() => fetchPlaceSuggestions(q), 600);
+  });
+  input.addEventListener("blur", () => {
+    setTimeout(hideDescriptionSuggestions, 150);
+  });
+}
+
+function hideDescriptionSuggestions() {
+  const dropdown = document.getElementById("descriptionSuggestions");
+  if (!dropdown) return;
+  dropdown.classList.add("d-none");
+  dropdown.innerHTML = "";
+}
+
+async function fetchPlaceSuggestions(query) {
+  try {
+    const params = new URLSearchParams({ q: query });
+    if (currentLat != null && currentLng != null) {
+      params.set("lat", currentLat);
+      params.set("lng", currentLng);
+    }
+    const res = await fetch(`/api/places/suggest?${params.toString()}`);
+    if (!res.ok) {
+      hideDescriptionSuggestions();
+      return;
+    }
+    const data = await res.json();
+    renderDescriptionSuggestions(data.suggestions || []);
+  } catch (e) {
+    console.error(e);
+    hideDescriptionSuggestions();
+  }
+}
+
+function renderDescriptionSuggestions(suggestions) {
+  const dropdown = document.getElementById("descriptionSuggestions");
+  if (!dropdown) return;
+  if (suggestions.length === 0) {
+    hideDescriptionSuggestions();
+    return;
+  }
+  dropdown.innerHTML = "";
+  suggestions.forEach((name) => {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "list-group-item list-group-item-action";
+    item.textContent = name;
+    item.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      document.getElementById("t_description").value = name;
+      hideDescriptionSuggestions();
+    });
+    dropdown.appendChild(item);
+  });
+  dropdown.classList.remove("d-none");
+}
+
 function resetForm() {
   document.getElementById("transactionForm").reset();
   document.getElementById("transactionForm").querySelectorAll(".is-invalid").forEach((el) => el.classList.remove("is-invalid"));
   document.getElementById("t_id").value = "";
+  hideDescriptionSuggestions();
+  cacheGeolocation();
 
   const now = new Date();
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
@@ -522,6 +617,78 @@ function applyReceiptResult(data) {
   syncAmountReadonly();
   updateTotalAmount();
   showToast("レシートを読み取りました。内容を確認して保存してください。");
+  transactionModal.show();
+}
+
+// ---- チャットで登録 ----
+function resetChatForm() {
+  chatMessages = [];
+  document.getElementById("chatMessages").innerHTML = "";
+  document.getElementById("chatResult").innerHTML = "";
+  document.getElementById("chatInput").value = "";
+}
+
+function appendChatBubble(role, text) {
+  const container = document.getElementById("chatMessages");
+  const bubble = document.createElement("div");
+  const isUser = role === "user";
+  bubble.className = `d-flex ${isUser ? "justify-content-end" : "justify-content-start"} mb-2`;
+  bubble.innerHTML = `<div class="p-2 rounded ${isUser ? "bg-primary text-white" : "bg-light border"}" style="max-width: 80%;">${escapeHtml(text)}</div>`;
+  container.appendChild(bubble);
+  container.scrollTop = container.scrollHeight;
+}
+
+async function sendChatMessage() {
+  const input = document.getElementById("chatInput");
+  const resultEl = document.getElementById("chatResult");
+  const btn = document.getElementById("chatSendBtn");
+  const text = input.value.trim();
+  if (!text) return;
+
+  appendChatBubble("user", text);
+  chatMessages.push({ role: "user", text });
+  input.value = "";
+  resultEl.innerHTML = "";
+  setBtnLoading(btn, true);
+  try {
+    const res = await fetch("/api/chat/parse", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": CSRF_TOKEN },
+      body: JSON.stringify({ csrf_token: CSRF_TOKEN, messages: chatMessages }),
+    });
+    if (handleAuthError(res)) return;
+    const json = await res.json();
+    if (!res.ok) {
+      resultEl.innerHTML = `<div class="alert alert-danger py-2 mb-0">${escapeHtml(json.error || "解析に失敗しました")}</div>`;
+      return;
+    }
+    if (json.status === "need_more_info") {
+      appendChatBubble("model", json.question);
+      chatMessages.push({ role: "model", text: json.question });
+    } else {
+      chatModal.hide();
+      applyChatResult(json);
+    }
+  } catch (e) {
+    console.error(e);
+    resultEl.innerHTML = '<div class="alert alert-danger py-2 mb-0">通信エラーが発生しました</div>';
+  } finally {
+    setBtnLoading(btn, false);
+  }
+}
+
+function applyChatResult(data) {
+  resetForm();
+  document.getElementById("modalTitle").textContent = "取引登録（チャット入力）";
+  if (data.date) document.getElementById("t_date").value = `${data.date}T00:00`;
+  if (data.description) document.getElementById("t_description").value = data.description;
+  if (data.amount != null) document.getElementById("t_amount").value = data.amount;
+  if (data.type) document.getElementById("t_type").value = data.type;
+  if (data.category_id) document.getElementById("t_category").value = data.category_id;
+  if (data.payment_method_id) document.getElementById("t_payment_method").value = data.payment_method_id;
+  toggleTypeUI();
+  syncAmountReadonly();
+  showToast("内容を確認して保存してください。");
   transactionModal.show();
 }
 

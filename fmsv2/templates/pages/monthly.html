@@ -11,6 +11,9 @@
         <button class="btn btn-outline-primary text-nowrap" data-bs-toggle="modal" data-bs-target="#receiptModal" onclick="resetReceiptForm()">
             <i class="fas fa-camera"></i> レシートから登録
         </button>
+        <button class="btn btn-outline-primary text-nowrap" data-bs-toggle="modal" data-bs-target="#chatModal" onclick="resetChatForm()">
+            <i class="fas fa-comment-dots"></i> チャットで登録
+        </button>
         <button class="btn btn-primary text-nowrap" data-bs-toggle="modal" data-bs-target="#transactionModal" onclick="resetForm()">
             <i class="fas fa-plus"></i> 登録
         </button>
@@ -162,9 +165,10 @@
                         </div>
                     </div>
 
-                    <div class="mb-3">
+                    <div class="mb-3 position-relative">
                         <label class="form-label" for="t_description">内容（店名・支払先・収入源）</label>
-                        <input type="text" name="description" id="t_description" class="form-control" required>
+                        <input type="text" name="description" id="t_description" class="form-control" autocomplete="off" required>
+                        <div id="descriptionSuggestions" class="list-group position-absolute w-100 shadow-sm d-none" style="z-index: 1056;"></div>
                     </div>
 
                     <div class="row mb-3">
@@ -236,6 +240,27 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
                 <button type="button" class="btn btn-primary" id="receiptSubmitBtn" onclick="submitReceipt()">読み取る</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="chatModal" tabindex="-1" aria-hidden="true" aria-labelledby="chatModalTitle">
+    <div class="modal-dialog modal-fullscreen-sm-down">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="chatModalTitle">チャットで登録</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-2">
+                    「今日ランチ1200円」のように1行で入力してください。情報が足りない場合は聞き返します。
+                </p>
+                <div id="chatMessages" class="mb-2" style="max-height: 320px; overflow-y: auto;"></div>
+                <div id="chatResult" class="small"></div>
+            </div>
+            <div class="modal-footer">
+                <input type="text" id="chatInput" class="form-control" placeholder="例: 今日ランチ1200円" aria-label="チャット入力">
+                <button type="button" class="btn btn-primary text-nowrap" id="chatSendBtn" onclick="sendChatMessage()">送信</button>
             </div>
         </div>
     </div>
