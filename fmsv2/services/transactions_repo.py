@@ -1,10 +1,12 @@
 import math
 from datetime import datetime
 
+from ..utils import numbers
 from ..utils.dates import month_range
 from .errors import NotFoundError, ValidationError
 
 VALID_TYPES = ("income", "expense")
+MAX_TEXT_LENGTH = 200  # schema.sqlのCHECK (length(...) BETWEEN 1 AND 200) と揃える
 
 
 def _escape_like(value):
@@ -44,8 +46,8 @@ def _coerce_id_strict(value, message):
 def _coerce_amount(value, message):
     if not _is_numeric(value):
         raise ValidationError(message)
-    amount = int(float(value))
-    if amount < 0:
+    amount = numbers.to_valid_amount(value)
+    if amount is None:
         raise ValidationError(message)
     return amount
 
@@ -105,6 +107,8 @@ def _validate_items(raw_items):
         item_name = str(raw.get("item_name", "")).strip()
         if not item_name:
             raise ValidationError("内訳の品名は必須です。")
+        if len(item_name) > MAX_TEXT_LENGTH:
+            raise ValidationError(f"内訳の品名は{MAX_TEXT_LENGTH}文字以内で指定してください。")
         amount = _coerce_amount(raw.get("amount"), "内訳の金額は0以上の数値で指定してください。")
         category_id = _coerce_id_strict(raw.get("category_id"), "内訳のカテゴリーが不正です。")
         items.append({"item_name": item_name, "amount": amount, "category_id": category_id})
@@ -197,6 +201,8 @@ def create_or_update(db, user_id, payload, tx_id=None):
     description = str(payload.get("description", "")).strip()
     if not description:
         raise ValidationError("descriptionは必須です。")
+    if len(description) > MAX_TEXT_LENGTH:
+        raise ValidationError(f"descriptionは{MAX_TEXT_LENGTH}文字以内で指定してください。")
 
     type_ = payload.get("type") or "expense"
     if type_ not in VALID_TYPES:

@@ -164,3 +164,15 @@ def test_filter_by_amount_range(auth_client):
     data = resp.get_json()
     assert len(data["transactions"]) == 1
     assert data["transactions"][0]["amount"] == 5000
+
+
+def test_create_requires_csrf(auth_client):
+    resp = _create(auth_client, csrf_token="invalid-token")
+    assert resp.status_code == 403
+
+
+def test_delete_requires_csrf(auth_client):
+    create_resp = _create(auth_client)
+    tx_id = create_resp.get_json()["id"]
+    resp = auth_client.delete(f"/api/transactions/{tx_id}", json={"csrf_token": "invalid-token"})
+    assert resp.status_code == 403

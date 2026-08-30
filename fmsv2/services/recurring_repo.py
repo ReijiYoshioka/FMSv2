@@ -1,9 +1,11 @@
 import sqlite3
 
+from ..utils import numbers
 from ..utils.dates import last_day_of_month
 from .errors import NotFoundError, ValidationError
 
 VALID_TYPES = ("income", "expense")
+MAX_TEXT_LENGTH = 200  # schema.sqlのCHECK (length(description) BETWEEN 1 AND 200) と揃える
 
 
 def list_recurring(db, user_id, month):
@@ -33,17 +35,16 @@ def _validate_payload(payload):
     description = str(payload.get("description", "")).strip()
     if not description:
         raise ValidationError("descriptionは必須です。")
+    if len(description) > MAX_TEXT_LENGTH:
+        raise ValidationError(f"descriptionは{MAX_TEXT_LENGTH}文字以内で指定してください。")
 
     type_ = payload.get("type") or "expense"
     if type_ not in VALID_TYPES:
         raise ValidationError("typeはincomeまたはexpenseで指定してください。")
 
-    try:
-        amount = int(float(payload.get("amount")))
-    except (TypeError, ValueError):
-        raise ValidationError("amountは数値で指定してください。") from None
-    if amount < 0:
-        raise ValidationError("amountは0以上で指定してください。")
+    amount = numbers.to_valid_amount(payload.get("amount"))
+    if amount is None:
+        raise ValidationError("amountは0以上の数値で指定してください。")
 
     try:
         day_of_month = int(payload.get("day_of_month"))

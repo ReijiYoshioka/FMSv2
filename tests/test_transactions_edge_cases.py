@@ -111,6 +111,30 @@ def test_decimal_string_min_max_is_truncated_and_applied(auth_client):
     assert data["transactions"][0]["amount"] == 5000
 
 
+def test_amount_exceeding_max_rejected_not_corrupted(auth_client):
+    resp = _create(auth_client, amount=1e20)
+    assert resp.status_code == 400
+
+
+def test_description_over_200_chars_rejected_not_500(auth_client):
+    resp = _create(auth_client, description="あ" * 201)
+    assert resp.status_code == 400
+
+
+def test_description_exactly_200_chars_accepted(auth_client):
+    resp = _create(auth_client, description="あ" * 200)
+    assert resp.status_code == 200
+
+
+def test_item_name_over_200_chars_rejected_not_500(auth_client):
+    resp = _create(
+        auth_client,
+        amount=None,
+        items=[{"item_name": "あ" * 201, "amount": 100, "category_id": None}],
+    )
+    assert resp.status_code == 400
+
+
 def test_invalid_top_level_category_id_falls_back_to_none(auth_client):
     resp = _create(auth_client, category_id="not-a-number")
     assert resp.status_code == 200

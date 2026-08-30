@@ -44,9 +44,15 @@ def test_save_single_and_get_status(auth_client):
 
 def test_save_zero_amount_deletes_budget(auth_client):
     _save_budget(auth_client, "2026-08", 1, 5000)
-    _save_budget(auth_client, "2026-08", 1, 0)
+    resp = _save_budget(auth_client, "2026-08", 1, 0)
+    assert resp.get_json() == {"deleted": True}
     status = auth_client.get("/api/budget?month=2026-08").get_json()
     assert all(i["category_id"] != 1 for i in status["items"])
+
+
+def test_save_nonzero_amount_returns_saved(auth_client):
+    resp = _save_budget(auth_client, "2026-08", 1, 5000)
+    assert resp.get_json() == {"saved": 1}
 
 
 def test_save_items_bulk(auth_client):
@@ -96,6 +102,23 @@ def test_delete_budget(auth_client):
 def test_budget_requires_login(client):
     resp = client.get("/api/budget?month=2026-08")
     assert resp.status_code == 401
+
+
+def test_save_requires_csrf(auth_client):
+    resp = auth_client.post(
+        "/api/budget",
+        json={"month": "2026-08", "category_id": 1, "amount": 1000, "csrf_token": "invalid-token"},
+    )
+    assert resp.status_code == 403
+
+
+def test_delete_requires_csrf(auth_client):
+    _save_budget(auth_client, "2026-08", 1, 5000)
+    resp = auth_client.delete(
+        "/api/budget",
+        json={"month": "2026-08", "category_id": 1, "csrf_token": "invalid-token"},
+    )
+    assert resp.status_code == 403
 
 
 def test_save_single_negative_amount_rejected(auth_client):

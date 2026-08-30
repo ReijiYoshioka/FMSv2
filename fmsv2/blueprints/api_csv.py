@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from flask import Blueprint, Response, request
 
 from ..db import get_db
@@ -7,21 +5,17 @@ from ..security.auth import api_login_required, current_user_id
 from ..security.csrf import require_csrf
 from ..services import csv_service
 from ..services.errors import ValidationError
-from ..utils.dates import is_valid_month_str
+from ..utils.dates import current_month_str, is_valid_month_str
 from ..utils.json_response import json_error, json_ok
 from ..utils.numbers import lenient_int
 
 bp = Blueprint("api_csv", __name__, url_prefix="/api/csv")
 
 
-def _current_month():
-    return datetime.now().strftime("%Y-%m")
-
-
 @bp.route("", methods=["GET"])
 @api_login_required
 def export():
-    month = request.args.get("month") or _current_month()
+    month = request.args.get("month") or current_month_str()
     if not is_valid_month_str(month):
         return json_error("monthの形式が不正です。")
     rows = csv_service.export_rows(

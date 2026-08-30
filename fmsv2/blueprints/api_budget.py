@@ -48,7 +48,9 @@ def save():
         amount = payload.get("amount")
         if category_id is None or amount is None:
             return json_error("category_idとamountは必須です。")
-        budget_repo.save_single(db, user_id, month, category_id, amount)
+        deleted = budget_repo.save_single(db, user_id, month, category_id, amount)
+        if deleted:
+            return json_ok({"deleted": True})
         return json_ok({"saved": 1})
     except ValidationError as e:
         return json_error(e.message, e.status)

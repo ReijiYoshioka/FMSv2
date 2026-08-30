@@ -1,5 +1,6 @@
 import sqlite3
 
+from ..utils import numbers
 from ..utils.dates import month_range, shift_month
 from . import summary_repo
 from .errors import ValidationError
@@ -40,14 +41,6 @@ def get_budget_status(db, user_id, month):
     return {"items": items, "total_budget": total_budget, "total_spent": total_spent}
 
 
-def _to_valid_amount(value):
-    try:
-        amount = int(float(value))
-    except (TypeError, ValueError):
-        return None
-    return amount if amount >= 0 else None
-
-
 def _to_valid_category_id(value):
     try:
         return int(value)
@@ -56,12 +49,13 @@ def _to_valid_category_id(value):
 
 
 def _upsert(db, user_id, category_id, month, amount):
+    """amount==0は削除として扱う（旧PHP版と同じ方針）。戻り値はdeletedされたかどうか。"""
     if amount == 0:
         db.execute(
             "DELETE FROM budgets WHERE user_id = ? AND category_id = ? AND month = ?",
             (user_id, category_id, month),
         )
-        return
+        return True
     try:
         db.execute(
             "INSERT INTO budgets (user_id, category_id, month, amount) VALUES (?, ?, ?, ?) "
@@ -70,6 +64,7 @@ def _upsert(db, user_id, category_id, month, amount):
         )
     except sqlite3.IntegrityError:
         raise ValidationError("指定されたカテゴリーが見つかりません。", 404) from None
+    return False
 
 
 def save_items(db, user_id, month, items):
@@ -81,7 +76,7 @@ def save_items(db, user_id, month, items):
         category_id = _to_valid_category_id(item.get("category_id"))
         if category_id is None:
             continue
-        amount = _to_valid_amount(item.get("amount", 0))
+        amount = numbers.to_valid_amount(item.get("amount", 0))
         if amount is None:
             continue
         try:
@@ -95,11 +90,12 @@ def save_items(db, user_id, month, items):
 
 def save_single(db, user_id, month, category_id, amount):
     category_id = _to_valid_category_id(category_id)
-    amount = _to_valid_amount(amount)
+    amount = numbers.to_valid_amount(amount)
     if category_id is None or amount is None:
         raise ValidationError("有効な予算額を入力してください。")
-    _upsert(db, user_id, category_id, month, amount)
+    deleted = _upsert(db, user_id, category_id, month, amount)
     db.commit()
+    return deleted
 
 
 def delete_budget(db, user_id, month, category_id):

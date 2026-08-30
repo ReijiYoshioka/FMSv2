@@ -68,3 +68,32 @@ def test_change_password_same_as_current_rejected(auth_client):
 def test_account_requires_login(client):
     resp = client.post("/api/account", json={"current_password": "a", "new_password": "b"})
     assert resp.status_code == 401
+
+
+def test_change_password_requires_csrf(auth_client):
+    resp = auth_client.post(
+        "/api/account",
+        json={
+            "current_password": "password123",
+            "new_password": "newpassword456",
+            "csrf_token": "invalid-token",
+        },
+    )
+    assert resp.status_code == 403
+
+
+def test_change_password_exactly_min_length_accepted(auth_client):
+    resp = auth_client.post(
+        "/api/account",
+        json={
+            "current_password": "password123",
+            "new_password": "12345678",
+            "csrf_token": _token(auth_client),
+        },
+    )
+    assert resp.status_code == 200
+
+
+def test_change_password_missing_fields_rejected(auth_client):
+    resp = auth_client.post("/api/account", json={"csrf_token": _token(auth_client)})
+    assert resp.status_code == 400

@@ -20,7 +20,7 @@ def test_all_tables_created(app):
     rows = conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
     conn.close()
     table_names = {row[0] for row in rows}
-    assert EXPECTED_TABLES <= table_names
+    assert table_names >= EXPECTED_TABLES
 
 
 def test_seed_master_data_loaded(app):

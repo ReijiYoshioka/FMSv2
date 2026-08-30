@@ -50,6 +50,26 @@ def test_invalid_day_of_month_rejected(auth_client):
     assert resp.status_code == 400
 
 
+def test_non_numeric_day_of_month_rejected(auth_client):
+    resp = _create_recurring(auth_client, day_of_month="not-a-number")
+    assert resp.status_code == 400
+
+
+def test_non_numeric_amount_rejected(auth_client):
+    resp = _create_recurring(auth_client, amount="not-a-number")
+    assert resp.status_code == 400
+
+
+def test_negative_amount_rejected(auth_client):
+    resp = _create_recurring(auth_client, amount=-100)
+    assert resp.status_code == 400
+
+
+def test_description_over_200_chars_rejected_not_500(auth_client):
+    resp = _create_recurring(auth_client, description="あ" * 201)
+    assert resp.status_code == 400
+
+
 def test_apply_creates_transaction_and_marks_applied(auth_client):
     _create_recurring(auth_client, day_of_month=25, amount=1500)
 
@@ -124,3 +144,17 @@ def test_delete_requires_ownership(auth_client):
 def test_recurring_requires_login(client):
     resp = client.get("/api/recurring?month=2026-08")
     assert resp.status_code == 401
+
+
+def test_create_requires_csrf(auth_client):
+    resp = _create_recurring(auth_client, csrf_token="invalid-token")
+    assert resp.status_code == 403
+
+
+def test_delete_requires_csrf(auth_client):
+    create_resp = _create_recurring(auth_client)
+    recurring_id = create_resp.get_json()["id"]
+    resp = auth_client.delete(
+        f"/api/recurring/{recurring_id}", json={"csrf_token": "invalid-token"}
+    )
+    assert resp.status_code == 403

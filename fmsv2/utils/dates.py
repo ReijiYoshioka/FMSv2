@@ -1,14 +1,16 @@
 import calendar
+from datetime import datetime
+
+
+def current_month_str():
+    return datetime.now().strftime("%Y-%m")
 
 
 def month_range(month_str):
     """'YYYY-MM' → (start, end) の半開区間。end は翌月1日。"""
     year, month = map(int, month_str.split("-"))
     start = f"{year:04d}-{month:02d}-01"
-    if month == 12:
-        end = f"{year + 1:04d}-01-01"
-    else:
-        end = f"{year:04d}-{month + 1:02d}-01"
+    end = f"{year + 1:04d}-01-01" if month == 12 else f"{year:04d}-{month + 1:02d}-01"
     return start, end
 
 

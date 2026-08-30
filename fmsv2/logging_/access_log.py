@@ -15,9 +15,9 @@ def _now_str():
 
 
 def _client_ip():
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
+    """信頼できるリバースプロキシ経由の場合はProxyFix（__init__.py）が
+    request.remote_addrを書き換える。設定が無い限りX-Forwarded-Forは
+    クライアントが自由に偽装できるため直接は信用しない。"""
     return request.remote_addr or ""
 
 

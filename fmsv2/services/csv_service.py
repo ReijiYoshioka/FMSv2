@@ -1,6 +1,7 @@
 import csv
 import io
 
+from ..utils import numbers
 from . import transactions_repo
 from .errors import ValidationError
 
@@ -84,6 +85,9 @@ def import_csv(db, user_id, file_storage):
     errors = []
 
     for i, row in enumerate(rows, start=1):
+        # 完全な空行は旧PHP版と同様にskipped/errorsへ数えず無条件でスキップする。
+        if len(row) == 0 or (len(row) == 1 and not row[0].strip()):
+            continue
         if len(row) < 6:
             skipped += 1
             if len(errors) < MAX_ERRORS:
@@ -108,11 +112,8 @@ def import_csv(db, user_id, file_storage):
                 errors.append(f"{i}行目: descriptionが空です。")
             continue
 
-        try:
-            amount = int(float(amount_raw))
-        except (TypeError, ValueError):
-            amount = None
-        if amount is None or amount < 0:
+        amount = numbers.to_valid_amount(amount_raw)
+        if amount is None:
             skipped += 1
             if len(errors) < MAX_ERRORS:
                 errors.append(f"{i}行目: amountが不正です。")

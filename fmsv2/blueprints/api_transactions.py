@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from flask import Blueprint, request
 
 from ..db import get_db
@@ -7,15 +5,11 @@ from ..security.auth import api_login_required, current_user_id
 from ..security.csrf import require_csrf
 from ..services import transactions_repo
 from ..services.errors import NotFoundError, ValidationError
-from ..utils.dates import is_valid_month_str
+from ..utils.dates import current_month_str, is_valid_month_str
 from ..utils.json_response import json_error, json_ok
 from ..utils.numbers import lenient_int
 
 bp = Blueprint("api_transactions", __name__, url_prefix="/api/transactions")
-
-
-def _current_month():
-    return datetime.now().strftime("%Y-%m")
 
 
 @bp.route("", methods=["GET"])
@@ -29,7 +23,7 @@ def list_or_metadata():
         payment_methods = [dict(r) for r in payment_rows]
         return json_ok({"categories": categories, "payment_methods": payment_methods})
 
-    month = request.args.get("month") or _current_month()
+    month = request.args.get("month") or current_month_str()
     if not is_valid_month_str(month):
         return json_error("monthの形式が不正です。")
 

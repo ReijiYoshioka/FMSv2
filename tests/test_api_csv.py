@@ -73,7 +73,50 @@ def test_import_skips_invalid_rows(auth_client):
     assert len(result["errors"]) == 3
 
 
+def test_import_skips_blank_lines_silently(auth_client):
+    csv_content = (
+        "date,type,description,category,payment_method,amount,memo\n"
+        "2026-08-01,expense,コンビニ,食費,現金,500,\n"
+        "\n"
+        "2026-08-02,income,給与,,銀行振込,3000,\n"
+        "\n"
+    )
+    data = {
+        "file": (io.BytesIO(csv_content.encode("utf-8")), "import.csv"),
+        "csrf_token": _token(auth_client),
+    }
+    resp = auth_client.post("/api/csv", data=data, content_type="multipart/form-data")
+    result = resp.get_json()
+    assert result["inserted"] == 2
+    assert result["skipped"] == 0
+    assert result["errors"] == []
+
+
 def test_import_requires_login(client):
     data = {"file": (io.BytesIO(b"date,type,description\n"), "import.csv")}
     resp = client.post("/api/csv", data=data, content_type="multipart/form-data")
     assert resp.status_code == 401
+
+
+def test_import_requires_csrf(auth_client):
+    data = {
+        "file": (io.BytesIO(b"date,type,description\n"), "import.csv"),
+        "csrf_token": "invalid-token",
+    }
+    resp = auth_client.post("/api/csv", data=data, content_type="multipart/form-data")
+    assert resp.status_code == 403
+
+
+def test_import_over_2mb_rejected_with_clean_error(auth_client):
+    # csv_service.MAX_IMPORT_BYTES(2MB)を超えるが、MAX_CONTENT_LENGTH(12MB)は超えない
+    # サイズにして、機能側の400エラーが先に発火することを確認する。
+    big_content = "date,type,description,category,payment_method,amount,memo\n" + "a" * (
+        2 * 1024 * 1024 + 100
+    )
+    data = {
+        "file": (io.BytesIO(big_content.encode("utf-8")), "big.csv"),
+        "csrf_token": _token(auth_client),
+    }
+    resp = auth_client.post("/api/csv", data=data, content_type="multipart/form-data")
+    assert resp.status_code == 400
+    assert "2MB" in resp.get_json()["error"]
