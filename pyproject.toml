@@ -12,7 +12,10 @@ line-length = 100
 target-version = "py311"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B"]
+# S(bandit)/ARG/RUF001-003は個人用アプリ・日本語コメント主体のこのコードベースでは
+# 誤検知が非常に多い（テストのassert、Flaskコールバックの規約上の未使用引数、全角文字の
+# コメント等）ため見送り。C4/SIM/UPは検出0〜2件で実害があり採用。
+select = ["E", "F", "W", "I", "B", "C4", "SIM", "UP"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
