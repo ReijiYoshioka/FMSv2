@@ -4,7 +4,7 @@ from ..db import get_db
 from ..security.auth import api_login_required
 from ..security.csrf import require_csrf
 from ..services import masters_repo
-from ..services.errors import ConflictError, ValidationError
+from ..services.errors import ConflictError, NotFoundError, ValidationError
 from ..utils.json_response import json_error, json_ok
 
 bp = Blueprint("api_masters", __name__, url_prefix="/api/masters")
@@ -29,6 +29,8 @@ def add_or_rename():
         return json_error(e.message, e.status)
     except ConflictError as e:
         return json_error(e.message, 409)
+    except NotFoundError:
+        return json_error("見つかりません。", 404)
     return json_ok({"id": new_id})
 
 

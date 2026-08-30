@@ -8,14 +8,16 @@ from ..utils.json_response import json_ok
 
 bp = Blueprint("healthcheck", __name__)
 
-REQUIRED_TABLES = [
-    "users",
-    "transactions",
-    "transaction_items",
-    "categories",
-    "payment_methods",
-    "login_attempts",
-]
+# テーブル名をf-stringでSQLに埋め込まず、クエリ全体を固定文字列として持つ
+# （「SQLは必ずパラメータ化/リテラルで書く」方針を徹底するため）。
+REQUIRED_TABLE_QUERIES = {
+    "users": "SELECT COUNT(*) AS n FROM users",
+    "transactions": "SELECT COUNT(*) AS n FROM transactions",
+    "transaction_items": "SELECT COUNT(*) AS n FROM transaction_items",
+    "categories": "SELECT COUNT(*) AS n FROM categories",
+    "payment_methods": "SELECT COUNT(*) AS n FROM payment_methods",
+    "login_attempts": "SELECT COUNT(*) AS n FROM login_attempts",
+}
 
 
 def _check_log_writable():
@@ -39,9 +41,9 @@ def healthcheck():
 
     db = get_db()
     tables = {}
-    for table in REQUIRED_TABLES:
+    for table, query in REQUIRED_TABLE_QUERIES.items():
         try:
-            count = db.execute(f"SELECT COUNT(*) AS n FROM {table}").fetchone()["n"]
+            count = db.execute(query).fetchone()["n"]
             tables[table] = {"exists": True, "count": count}
         except Exception:
             tables[table] = {"exists": False, "count": None}

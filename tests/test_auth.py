@@ -39,6 +39,21 @@ def test_register_duplicate_username(client, create_test_user):
     assert "既に使われています" in resp.get_data(as_text=True)
 
 
+def test_register_rate_limit_locks_after_five_attempts(client):
+    for i in range(5):
+        token = get_csrf_token(client, "/register")
+        client.post(
+            "/register",
+            data={"username": f"user{i}", "password": "password123", "csrf_token": token},
+        )
+    token = get_csrf_token(client, "/register")
+    resp = client.post(
+        "/register",
+        data={"username": "user999", "password": "password123", "csrf_token": token},
+    )
+    assert "上限を超えました" in resp.get_data(as_text=True)
+
+
 def test_login_success_redirects_to_monthly(client, create_test_user):
     create_test_user("taro", "password123")
     token = get_csrf_token(client, "/login")
@@ -81,6 +96,25 @@ def test_login_rate_limit_locks_after_five_failures(client, create_test_user):
     resp = client.post(
         "/login",
         data={"username": "taro", "password": "password123", "csrf_token": token},
+    )
+    assert "上限を超えました" in resp.get_data(as_text=True)
+
+
+def test_login_lockout_ignores_spoofed_forwarded_for_header(client, create_test_user):
+    """X-Forwarded-Forを偽装してもロックアウト判定は実際の接続元IPのまま（TRUSTED_PROXY_COUNT=0既定）。"""
+    create_test_user("taro", "password123")
+    for i in range(5):
+        token = get_csrf_token(client, "/login")
+        client.post(
+            "/login",
+            data={"username": "taro", "password": "wrong-password", "csrf_token": token},
+            headers={"X-Forwarded-For": f"10.0.0.{i}"},
+        )
+    token = get_csrf_token(client, "/login")
+    resp = client.post(
+        "/login",
+        data={"username": "taro", "password": "password123", "csrf_token": token},
+        headers={"X-Forwarded-For": "10.0.0.99"},
     )
     assert "上限を超えました" in resp.get_data(as_text=True)
 

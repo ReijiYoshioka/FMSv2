@@ -3,7 +3,13 @@ from flask import Blueprint, redirect, render_template, request, session, url_fo
 from ..db import get_db
 from ..security.auth import current_user_id
 from ..security.csrf import csrf_token, verify_csrf
-from ..security.rate_limit import client_ip, is_locked_out, record_attempt
+from ..security.rate_limit import (
+    client_ip,
+    is_locked_out,
+    is_register_locked_out,
+    record_attempt,
+    record_register_attempt,
+)
 from ..services import users_repo
 
 bp = Blueprint("auth", __name__)
@@ -47,18 +53,24 @@ def register():
         if not verify_csrf(request.form.get("csrf_token")):
             error = "CSRFトークンが不正です。ページを再読み込みしてください。"
         else:
-            username = request.form.get("username", "").strip()
-            password = request.form.get("password", "")
-            if len(username) < users_repo.MIN_USERNAME_LEN:
-                error = f"ユーザー名は{users_repo.MIN_USERNAME_LEN}文字以上で入力してください。"
-            elif len(password) < users_repo.MIN_PASSWORD_LEN:
-                error = f"パスワードは{users_repo.MIN_PASSWORD_LEN}文字以上で入力してください。"
+            db = get_db()
+            ip = client_ip(request)
+            if is_register_locked_out(db, ip):
+                error = "登録試行回数が上限を超えました。しばらくしてから再試行してください。"
             else:
-                try:
-                    users_repo.create_user(get_db(), username, password)
-                    success = True
-                except users_repo.UsernameTakenError:
-                    error = "そのユーザー名は既に使われています。"
+                record_register_attempt(db, ip)
+                username = request.form.get("username", "").strip()
+                password = request.form.get("password", "")
+                if len(username) < users_repo.MIN_USERNAME_LEN:
+                    error = f"ユーザー名は{users_repo.MIN_USERNAME_LEN}文字以上で入力してください。"
+                elif len(password) < users_repo.MIN_PASSWORD_LEN:
+                    error = f"パスワードは{users_repo.MIN_PASSWORD_LEN}文字以上で入力してください。"
+                else:
+                    try:
+                        users_repo.create_user(db, username, password)
+                        success = True
+                    except users_repo.UsernameTakenError:
+                        error = "そのユーザー名は既に使われています。"
     return render_template(
         "auth/register.html", error=error, success=success, csrf_token=csrf_token()
     )
