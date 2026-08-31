@@ -318,6 +318,7 @@ async function importCsv() {
     if (res.ok) {
       let html = `<div class="alert alert-success py-2">取込 ${json.inserted} 件`;
       if (json.skipped) html += ` / スキップ ${json.skipped} 件`;
+      if (json.duplicates) html += ` / 重複スキップ ${json.duplicates} 件`;
       html += "</div>";
       if (json.errors && json.errors.length) {
         html += '<ul class="small text-danger mb-0">' + json.errors.map((e) => `<li>${escapeHtml(e)}</li>`).join("") + "</ul>";

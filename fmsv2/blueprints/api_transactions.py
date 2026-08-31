@@ -11,6 +11,8 @@ from ..utils.numbers import lenient_int
 
 bp = Blueprint("api_transactions", __name__, url_prefix="/api/transactions")
 
+ALL_TIME_LIMIT = 500
+
 
 @bp.route("", methods=["GET"])
 @api_login_required
@@ -23,9 +25,13 @@ def list_or_metadata():
         payment_methods = [dict(r) for r in payment_rows]
         return json_ok({"categories": categories, "payment_methods": payment_methods})
 
-    month = request.args.get("month") or current_month_str()
-    if not is_valid_month_str(month):
-        return json_error("monthの形式が不正です。")
+    all_time = request.args.get("all_time") == "1"
+    if all_time:
+        month = None
+    else:
+        month = request.args.get("month") or current_month_str()
+        if not is_valid_month_str(month):
+            return json_error("monthの形式が不正です。")
 
     min_amount = lenient_int(request.args.get("min"))
     max_amount = lenient_int(request.args.get("max"))
@@ -40,8 +46,12 @@ def list_or_metadata():
         category_id=category_id,
         min_amount=min_amount,
         max_amount=max_amount,
+        limit=ALL_TIME_LIMIT + 1 if all_time else None,
     )
-    return json_ok({"transactions": items})
+    truncated = all_time and len(items) > ALL_TIME_LIMIT
+    if truncated:
+        items = items[:ALL_TIME_LIMIT]
+    return json_ok({"transactions": items, "truncated": truncated})
 
 
 @bp.route("", methods=["POST"])

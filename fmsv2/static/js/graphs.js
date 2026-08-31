@@ -1,10 +1,5 @@
 let charts = {};
 
-const PIE_COLORS = [
-  "#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF", "#FF9F40",
-  "#e74c3c", "#3498db", "#f1c40f", "#1abc9c", "#9b59b6", "#e67e22",
-];
-
 document.addEventListener("DOMContentLoaded", () => {
   const now = new Date();
   const yearSel = document.getElementById("reportYearSelector");
@@ -105,11 +100,15 @@ async function loadPieChartByYear(canvasId, mode, year) {
     toggleChartEmpty(canvasId, false);
 
     const labelKey = mode === "annual_payment_chart" ? "payment_method" : "category";
+    const colors =
+      mode === "annual_payment_chart"
+        ? data.map((_, i) => CATEGORY_COLORS[i % CATEGORY_COLORS.length])
+        : data.map((d) => categoryColor(d.category_id));
     charts[canvasId] = new Chart(ctx, {
       type: "doughnut",
       data: {
         labels: data.map((d) => d[labelKey]),
-        datasets: [{ data: data.map((d) => d.value), backgroundColor: PIE_COLORS }],
+        datasets: [{ data: data.map((d) => d.value), backgroundColor: colors }],
       },
       options: {
         responsive: true,
@@ -142,11 +141,15 @@ async function loadPieChart(canvasId, mode, monthValue) {
     toggleChartEmpty(canvasId, false);
 
     const labelKey = mode === "payment_chart" ? "payment_method" : "category";
+    const colors =
+      mode === "payment_chart"
+        ? data.map((_, i) => CATEGORY_COLORS[i % CATEGORY_COLORS.length])
+        : data.map((d) => categoryColor(d.category_id));
     charts[canvasId] = new Chart(ctx, {
       type: "doughnut",
       data: {
         labels: data.map((d) => d[labelKey]),
-        datasets: [{ data: data.map((d) => d.value), backgroundColor: PIE_COLORS }],
+        datasets: [{ data: data.map((d) => d.value), backgroundColor: colors }],
       },
       options: {
         responsive: true,

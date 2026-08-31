@@ -166,6 +166,43 @@ def test_filter_by_amount_range(auth_client):
     assert data["transactions"][0]["amount"] == 5000
 
 
+def test_all_time_returns_transactions_across_months(auth_client):
+    _create(auth_client, date="2025-01-10", description="去年の取引")
+    _create(auth_client, date="2026-08-10", description="今月の取引")
+    resp = auth_client.get("/api/transactions?all_time=1")
+    data = resp.get_json()
+    assert resp.status_code == 200
+    assert len(data["transactions"]) == 2
+    assert data["truncated"] is False
+
+
+def test_all_time_ignores_month_param(auth_client):
+    _create(auth_client, date="2025-01-10")
+    resp = auth_client.get("/api/transactions?all_time=1&month=not-a-valid-month")
+    assert resp.status_code == 200
+
+
+def test_month_mode_still_scoped_to_month(auth_client):
+    _create(auth_client, date="2025-01-10", description="去年の取引")
+    _create(auth_client, date="2026-08-10", description="今月の取引")
+    resp = auth_client.get("/api/transactions?month=2026-08")
+    data = resp.get_json()
+    assert len(data["transactions"]) == 1
+    assert data["truncated"] is False
+
+
+def test_all_time_truncates_beyond_limit(auth_client, monkeypatch):
+    from fmsv2.blueprints import api_transactions
+
+    monkeypatch.setattr(api_transactions, "ALL_TIME_LIMIT", 2)
+    for i in range(3):
+        _create(auth_client, date=f"2026-08-{10 + i:02d}", description=f"取引{i}")
+    resp = auth_client.get("/api/transactions?all_time=1")
+    data = resp.get_json()
+    assert len(data["transactions"]) == 2
+    assert data["truncated"] is True
+
+
 def test_create_requires_csrf(auth_client):
     resp = _create(auth_client, csrf_token="invalid-token")
     assert resp.status_code == 403

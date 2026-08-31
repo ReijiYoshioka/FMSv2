@@ -34,6 +34,16 @@ function escapeHtml(str) {
   );
 }
 
+const CATEGORY_COLORS = [
+  "#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF", "#FF9F40",
+  "#e74c3c", "#3498db", "#f1c40f", "#1abc9c", "#9b59b6", "#e67e22",
+];
+
+function categoryColor(categoryId) {
+  if (categoryId == null) return "#adb5bd";
+  return CATEGORY_COLORS[Number(categoryId) % CATEGORY_COLORS.length];
+}
+
 function shiftMonth(monthStr, delta) {
   const [y, m] = monthStr.split("-").map(Number);
   const d = new Date(y, m - 1 + delta, 1);

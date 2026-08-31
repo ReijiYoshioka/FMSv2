@@ -138,6 +138,24 @@ def import_csv(db, user_id, file_storage):
             )
         )
 
+    duplicates = 0
+    if to_insert:
+        dates = [record[1] for record in to_insert]
+        existing_rows = db.execute(
+            "SELECT date, amount, description FROM transactions "
+            "WHERE user_id = ? AND date >= ? AND date <= ?",
+            (user_id, min(dates), max(dates)),
+        ).fetchall()
+        existing_keys = {(r["date"], r["amount"], r["description"]) for r in existing_rows}
+        filtered = []
+        for record in to_insert:
+            key = (record[1], record[6], record[3])  # date_value, amount, description
+            if key in existing_keys:
+                duplicates += 1
+                continue
+            filtered.append(record)
+        to_insert = filtered
+
     for record in to_insert:
         db.execute(
             "INSERT INTO transactions (user_id, date, type, description, category_id, "
@@ -146,4 +164,10 @@ def import_csv(db, user_id, file_storage):
         )
     db.commit()
 
-    return {"success": True, "inserted": len(to_insert), "skipped": skipped, "errors": errors}
+    return {
+        "success": True,
+        "inserted": len(to_insert),
+        "skipped": skipped,
+        "duplicates": duplicates,
+        "errors": errors,
+    }

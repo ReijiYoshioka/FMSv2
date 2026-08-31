@@ -55,6 +55,34 @@ def test_import_inserts_valid_rows(auth_client):
     assert len(listing["transactions"]) == 2
 
 
+def test_import_same_file_twice_skips_duplicates(auth_client):
+    csv_content = (
+        "date,type,description,category,payment_method,amount,memo\n"
+        "2026-08-01,expense,コンビニ,食費,現金,500,\n"
+        "2026-08-02,income,給与,,銀行振込,3000,\n"
+    )
+
+    def _import():
+        data = {
+            "file": (io.BytesIO(csv_content.encode("utf-8")), "import.csv"),
+            "csrf_token": _token(auth_client),
+        }
+        return auth_client.post(
+            "/api/csv", data=data, content_type="multipart/form-data"
+        ).get_json()
+
+    first = _import()
+    assert first["inserted"] == 2
+    assert first["duplicates"] == 0
+
+    second = _import()
+    assert second["inserted"] == 0
+    assert second["duplicates"] == 2
+
+    listing = auth_client.get("/api/transactions?month=2026-08").get_json()
+    assert len(listing["transactions"]) == 2
+
+
 def test_import_skips_invalid_rows(auth_client):
     csv_content = (
         "date,type,description,category,payment_method,amount,memo\n"

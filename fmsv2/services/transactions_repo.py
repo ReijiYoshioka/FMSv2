@@ -138,11 +138,24 @@ def _attach_items(db, transactions):
 
 
 def list_transactions(
-    db, user_id, month, q=None, type_=None, category_id=None, min_amount=None, max_amount=None
+    db,
+    user_id,
+    month,
+    q=None,
+    type_=None,
+    category_id=None,
+    min_amount=None,
+    max_amount=None,
+    limit=None,
 ):
-    start, end = month_range(month)
-    conditions = ["user_id = ?", "date >= ?", "date < ?"]
-    params = [user_id, start, end]
+    """month=Noneなら日付条件を付けず全期間を対象にする（全期間検索用）。"""
+    conditions = ["user_id = ?"]
+    params = [user_id]
+    if month is not None:
+        start, end = month_range(month)
+        conditions.append("date >= ?")
+        conditions.append("date < ?")
+        params.extend([start, end])
 
     q = (q or "").strip()
     if q:
@@ -169,6 +182,9 @@ def list_transactions(
         "LEFT JOIN payment_methods p ON p.id = t.payment_method_id "
         "WHERE " + " AND ".join(conditions) + " ORDER BY t.date DESC, t.id DESC"
     )
+    if limit is not None:
+        sql += " LIMIT ?"
+        params.append(limit)
     rows = db.execute(sql, params).fetchall()
     return _attach_items(db, rows)
 

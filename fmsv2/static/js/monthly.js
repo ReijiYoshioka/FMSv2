@@ -10,10 +10,6 @@ let txById = {};
 let searchFilter = {};
 
 const WEEKDAYS_JA = ["日", "月", "火", "水", "木", "金", "土"];
-const PIE_COLORS = [
-  "#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF", "#FF9F40",
-  "#e74c3c", "#3498db", "#f1c40f", "#1abc9c", "#9b59b6", "#e67e22",
-];
 
 document.addEventListener("DOMContentLoaded", async () => {
   const modalEl = document.getElementById("transactionModal");
@@ -26,6 +22,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (e.key === "Enter") sendChatMessage();
   });
   setupDescriptionSuggestions();
+  setupVoiceInput();
 
   await loadMetadata();
   populateSelects();
@@ -97,11 +94,17 @@ function initMonthlyPage() {
   document.getElementById("searchKeyword")?.addEventListener("keydown", (e) => {
     if (e.key === "Enter") applySearch();
   });
+  document.getElementById("searchAllTime")?.addEventListener("change", (e) => {
+    setMonthNavDisabled(e.target.checked);
+  });
   document.getElementById("searchClearBtn")?.addEventListener("click", () => {
     ["searchKeyword", "searchType", "searchCategory", "searchMin", "searchMax"].forEach((id) => {
       const el = document.getElementById(id);
       if (el) el.value = "";
     });
+    const allTimeEl = document.getElementById("searchAllTime");
+    if (allTimeEl) allTimeEl.checked = false;
+    setMonthNavDisabled(false);
     searchFilter = {};
     loadTransactions(monthSelector.value);
   });
@@ -113,6 +116,13 @@ function initMonthlyPage() {
   });
 }
 
+function setMonthNavDisabled(disabled) {
+  ["monthSelector", "prevMonthBtn", "nextMonthBtn"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = disabled;
+  });
+}
+
 function applySearch() {
   const f = {};
   const kw = document.getElementById("searchKeyword")?.value.trim();
@@ -120,11 +130,13 @@ function applySearch() {
   const cat = document.getElementById("searchCategory")?.value;
   const min = document.getElementById("searchMin")?.value;
   const max = document.getElementById("searchMax")?.value;
+  const allTime = document.getElementById("searchAllTime")?.checked;
   if (kw) f.q = kw;
   if (type) f.type = type;
   if (cat) f.category_id = cat;
   if (min !== "") f.min = min;
   if (max !== "") f.max = max;
+  if (allTime) f.all_time = "1";
   searchFilter = f;
   loadTransactions(document.getElementById("monthSelector").value);
 }
@@ -136,6 +148,54 @@ function refreshMonthlyView() {
   loadPieChart("monthlyCategoryChart", "category_chart", m);
   loadPieChart("monthlyPaymentChart", "payment_chart", m);
   loadBudgetProgress(m);
+  loadMonthlyAlerts(m);
+}
+
+async function loadMonthlyAlerts(month) {
+  const container = document.getElementById("monthlyAlerts");
+  if (!container) return;
+  const banners = [];
+
+  try {
+    const res = await fetch(`/api/budget?month=${encodeURIComponent(month)}`);
+    if (!handleAuthError(res) && res.ok) {
+      const data = await res.json();
+      const items = data.items || [];
+      const overCount = items.filter((it) => it.ratio >= 100).length;
+      const warnCount = items.filter((it) => it.ratio >= 90 && it.ratio < 100).length;
+      if (overCount > 0) {
+        banners.push(
+          `<div class="alert alert-danger py-2 mb-2"><i class="fas fa-exclamation-triangle me-1"></i>${overCount}件のカテゴリーが予算を超えています</div>`
+        );
+      } else if (warnCount > 0) {
+        banners.push(
+          `<div class="alert alert-warning py-2 mb-2"><i class="fas fa-exclamation-circle me-1"></i>${warnCount}件のカテゴリーが予算の90%に近づいています</div>`
+        );
+      }
+    }
+  } catch (e) {
+    console.error(e);
+  }
+
+  try {
+    const res = await fetch(`/api/recurring?month=${encodeURIComponent(month)}`);
+    if (!handleAuthError(res) && res.ok) {
+      const data = await res.json();
+      const unapplied = (data.recurring || []).filter(
+        (r) => Number(r.active) === 1 && !r.applied_this_month
+      ).length;
+      if (unapplied > 0) {
+        banners.push(
+          `<div class="alert alert-info py-2 mb-2"><i class="fas fa-sync-alt me-1"></i>定期取引が${unapplied}件未適用です ` +
+            `<a href="${window.MANAGE_URL}#recurring">管理画面へ</a></div>`
+        );
+      }
+    }
+  } catch (e) {
+    console.error(e);
+  }
+
+  container.innerHTML = banners.join("");
 }
 
 async function loadTransactions(month) {
@@ -309,7 +369,7 @@ function renderTransactions(transactions) {
                 <div class="flex-grow-1 min-w-0">
                     <div class="fw-bold text-truncate">${escapeHtml(t.description)}</div>
                     <div class="small text-muted text-truncate">
-                        <span class="badge bg-light text-dark border me-1">${escapeHtml(catName)}</span>
+                        <span class="badge bg-light text-dark border me-1" style="border-left-color: ${categoryColor(t.category_id)}; border-left-width: 3px;">${escapeHtml(catName)}</span>
                         <span>${escapeHtml(payName)}</span>
                         ${t.items && t.items.length > 0 ? `<span class="badge text-bg-info ms-1"><i class="fas fa-layer-group"></i> ${t.items.length}</span>` : ""}
                     </div>
@@ -330,7 +390,7 @@ function renderTransactions(transactions) {
       t.items.forEach((item) => {
         itemsHtml += `
                     <li class="list-group-item d-flex justify-content-between align-items-center bg-white px-2 py-1">
-                        <span>${escapeHtml(item.item_name)} <span class="badge bg-light text-secondary border ms-1">${escapeHtml(item.category_name || "")}</span></span>
+                        <span>${escapeHtml(item.item_name)} <span class="badge bg-light text-secondary border ms-1" style="border-left-color: ${categoryColor(item.category_id)}; border-left-width: 3px;">${escapeHtml(item.category_name || "")}</span></span>
                         <span>¥${Number(item.amount).toLocaleString()}</span>
                     </li>`;
       });
@@ -620,6 +680,47 @@ function applyReceiptResult(data) {
   transactionModal.show();
 }
 
+// ---- チャットの音声入力 ----
+let speechRecognition = null;
+let isListening = false;
+
+function setupVoiceInput() {
+  const micBtn = document.getElementById("chatMicBtn");
+  const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!micBtn || !SpeechRecognitionCtor) return;
+
+  speechRecognition = new SpeechRecognitionCtor();
+  speechRecognition.lang = "ja-JP";
+  speechRecognition.interimResults = false;
+  speechRecognition.maxAlternatives = 1;
+
+  speechRecognition.addEventListener("result", (e) => {
+    document.getElementById("chatInput").value = e.results[0][0].transcript;
+  });
+  const stopListeningUI = () => {
+    isListening = false;
+    micBtn.classList.remove("btn-danger");
+    micBtn.classList.add("btn-outline-secondary");
+  };
+  speechRecognition.addEventListener("end", stopListeningUI);
+  speechRecognition.addEventListener("error", stopListeningUI);
+
+  micBtn.classList.remove("d-none");
+}
+
+function toggleVoiceInput() {
+  if (!speechRecognition) return;
+  const micBtn = document.getElementById("chatMicBtn");
+  if (isListening) {
+    speechRecognition.stop();
+    return;
+  }
+  isListening = true;
+  micBtn.classList.remove("btn-outline-secondary");
+  micBtn.classList.add("btn-danger");
+  speechRecognition.start();
+}
+
 // ---- チャットで登録 ----
 function resetChatForm() {
   chatMessages = [];
@@ -829,11 +930,15 @@ async function loadPieChart(canvasId, mode, monthValue) {
     toggleChartEmpty(canvasId, false);
 
     const labelKey = mode === "payment_chart" ? "payment_method" : "category";
+    const colors =
+      mode === "payment_chart"
+        ? data.map((_, i) => CATEGORY_COLORS[i % CATEGORY_COLORS.length])
+        : data.map((d) => categoryColor(d.category_id));
     charts[canvasId] = new Chart(ctx, {
       type: "doughnut",
       data: {
         labels: data.map((d) => d[labelKey]),
-        datasets: [{ data: data.map((d) => d.value), backgroundColor: PIE_COLORS }],
+        datasets: [{ data: data.map((d) => d.value), backgroundColor: colors }],
       },
       options: {
         responsive: true,
